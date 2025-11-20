@@ -5,7 +5,7 @@ import ErrorBoundary from "components/ErrorBoundary";
 import NotFound from "pages/NotFound";
 import PurchaseOrdersPage from './pages/purchase-orders';
 import DealsManagement from './pages/deals-management';
-import IntelligentMatching from './pages/intelligent-matching';
+import IntelligentMatching from './pages/inteligent-matching';
 import SuppliersManagement from './pages/suppliers-management';
 import GlobalSearch from './pages/global-search';
 import ClientsManagement from './pages/clients-management';
