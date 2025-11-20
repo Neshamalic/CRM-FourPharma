@@ -27,7 +27,7 @@ const Routes = () => {
         <Route path="*" element={<NotFound />} />
       </RouterRoutes>
       </ErrorBoundary>
-    </BrowserRouter>
+    </BrowserRouter> js
   );
 };
 
