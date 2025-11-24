@@ -7,7 +7,7 @@ import Button from '../../components/ui/Button';
 import DealsTable from './components/DealsTable';
 import KanbanBoard from './components/KanbanBoard';
 import DealModal from './components/DealModal';
-import DealsFilters from './components/DealsFilters';
+import DealsFilter from './components/DealsFilter';
 import DealsStats from './components/DealsStats';
 
 const DealsManagement = () => {
@@ -336,7 +336,7 @@ const DealsManagement = () => {
           <DealsStats deals={filteredDeals} />
 
           {/* Filters */}
-          <DealsFilters
+          <DealsFilter
             filters={filters}
             onFiltersChange={handleFiltersChange}
             onClearFilters={handleClearFilters}
