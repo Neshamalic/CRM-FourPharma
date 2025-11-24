@@ -4,7 +4,7 @@ import Button from '../../../components/ui/Button';
 import Select from '../../../components/ui/Select';
 import Input from '../../../components/ui/Input';
 
-const DealsFilters = ({ filters, onFiltersChange, onClearFilters }) => {
+const DealsFilter = ({ filters, onFiltersChange, onClearFilters }) => {
   const stageOptions = [
     { value: '', label: 'All Stages' },
     { value: 'Lead', label: 'Lead' },
@@ -181,4 +181,4 @@ const DealsFilters = ({ filters, onFiltersChange, onClearFilters }) => {
   );
 };
 
-export default DealsFilters;
+export default DealsFilter;
