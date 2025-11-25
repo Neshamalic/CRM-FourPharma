@@ -7,6 +7,7 @@ import ClientsTable from './components/ClientsTable';
 import ClientRequirements from './components/ClientRequirements';
 import ClientFormModal from './components/ClientFormModal';
 import RequirementFormModal from './components/RequirementFormModal';
+import { supabase } from '../../utils/supabaseClient';
 
 const ClientsManagement = () => {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ const ClientsManagement = () => {
   const [editingRequirement, setEditingRequirement] = useState(null);
   const [userRole] = useState('editor'); // Mock user role - in real app, get from auth context
 
-  // Mock data
+  // ---------- MOCK DATA (fallback si Supabase está vacío o falla) ----------
   const mockClients = [
     {
       id: "client-001",
@@ -197,17 +198,76 @@ const ClientsManagement = () => {
     }
   ];
 
+  // ---------- Cargar datos desde Supabase (con fallback a mocks) ----------
   useEffect(() => {
-    // Simulate API call
     const loadData = async () => {
       setIsLoading(true);
       try {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // 1) Cargar clients desde Supabase
+        const { data: clientsData, error: clientsError } = await supabase
+          .from('clients')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        // 2) Cargar requirements desde Supabase
+        const { data: reqsData, error: reqsError } = await supabase
+          .from('client_requirements')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (clientsError) throw clientsError;
+        if (reqsError) throw reqsError;
+
+        // Mapear formato de BD → formato que usan los componentes actuales
+        const mappedClients =
+          clientsData && clientsData.length > 0
+            ? clientsData.map((c) => ({
+                id: c.id,
+                company_name: c.name,
+                contact_person: c.contact_name,
+                position: '', // no existe en la tabla todavía
+                email: c.contact_email,
+                phone: c.contact_phone,
+                address: '',
+                city: '',
+                state: '',
+                country: c.country,
+                postal_code: '',
+                industry: c.segment,
+                company_size: '',
+                status: c.status || 'active',
+                notes: c.notes,
+                created_at: c.created_at
+              }))
+            : mockClients;
+
+        const mappedRequirements =
+          reqsData && reqsData.length > 0
+            ? reqsData.map((r) => ({
+                id: r.id,
+                client_id: r.client_id,
+                product_name: r.product_name,
+                api_name: r.api_name || '',
+                dosage_form: r.dosage_form,
+                strength: r.strength,
+                quantity: r.annual_volume || null,
+                unit: r.unit || '',
+                budget_usd: r.budget_usd || null,
+                deadline: r.deadline || null,
+                priority: r.priority,
+                status: r.status || 'open',
+                notes: r.notes,
+                created_at: r.created_at
+              }))
+            : mockRequirements;
+
+        setClients(mappedClients);
+        setRequirements(mappedRequirements);
+      } catch (error) {
+        console.error('Error loading data from Supabase, using mock data:', error);
+        // Fallback: usar mock data si falla Supabase
         setClients(mockClients);
         setRequirements(mockRequirements);
-      } catch (error) {
-        console.error('Error loading data:', error);
       } finally {
         setIsLoading(false);
       }
@@ -216,6 +276,7 @@ const ClientsManagement = () => {
     loadData();
   }, []);
 
+  // ---------- Handlers de selección / navegación ----------
   const handleSelectClient = (client) => {
     setSelectedClient(client);
   };
@@ -225,14 +286,24 @@ const ClientsManagement = () => {
     setIsClientModalOpen(true);
   };
 
+  // ---------- CRUD de CLIENTES conectado a Supabase ----------
   const handleDeleteClient = async (clientId) => {
     if (window.confirm('Are you sure you want to delete this client? This action cannot be undone.')) {
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setClients(prev => prev?.filter(c => c?.id !== clientId));
-        
-        // Clear selection if deleted client was selected
+        // Borrar en Supabase (si el id es un UUID real; si es mock no pasará nada)
+        const { error } = await supabase
+          .from('clients')
+          .delete()
+          .eq('id', clientId);
+
+        if (error) {
+          console.error('Error deleting client in Supabase:', error);
+        }
+
+        // Actualizar estado local
+        setClients((prev) => prev?.filter((c) => c?.id !== clientId));
+
+        // Limpiar selección si era el cliente seleccionado
         if (selectedClient?.id === clientId) {
           setSelectedClient(null);
         }
@@ -244,31 +315,83 @@ const ClientsManagement = () => {
 
   const handleSaveClient = async (clientData) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       if (editingClient) {
-        // Update existing client
-        setClients(prev => prev?.map(c => 
-          c?.id === editingClient?.id 
-            ? { ...c, ...clientData, updated_at: new Date()?.toISOString() }
-            : c
-        ));
-        
-        // Update selected client if it was the one being edited
+        // UPDATE en Supabase
+        const { error } = await supabase
+          .from('clients')
+          .update({
+            name: clientData.company_name,
+            country: clientData.country,
+            segment: clientData.industry,
+            contact_name: clientData.contact_person,
+            contact_email: clientData.email,
+            contact_phone: clientData.phone,
+            status: clientData.status,
+            notes: clientData.notes
+          })
+          .eq('id', editingClient.id);
+
+        if (error) {
+          console.error('Error updating client in Supabase:', error);
+          throw error;
+        }
+
+        // Actualizar estado local
+        setClients((prev) =>
+          prev?.map((c) =>
+            c?.id === editingClient?.id ? { ...c, ...clientData } : c
+          )
+        );
+
+        // Actualizar seleccionado si corresponde
         if (selectedClient?.id === editingClient?.id) {
-          setSelectedClient(prev => ({ ...prev, ...clientData }));
+          setSelectedClient((prev) => (prev ? { ...prev, ...clientData } : prev));
         }
       } else {
-        // Create new client
+        // INSERT en Supabase
+        const { data, error } = await supabase
+          .from('clients')
+          .insert({
+            name: clientData.company_name,
+            country: clientData.country,
+            segment: clientData.industry,
+            contact_name: clientData.contact_person,
+            contact_email: clientData.email,
+            contact_phone: clientData.phone,
+            status: clientData.status,
+            notes: clientData.notes
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error inserting client in Supabase:', error);
+          throw error;
+        }
+
+        // Mapear registro de Supabase → formato usado por la UI
         const newClient = {
-          id: `client-${Date.now()}`,
-          ...clientData,
-          created_at: new Date()?.toISOString()
+          id: data.id,
+          company_name: data.name,
+          contact_person: data.contact_name,
+          position: clientData.position || '',
+          email: data.contact_email,
+          phone: data.contact_phone,
+          address: clientData.address || '',
+          city: clientData.city || '',
+          state: clientData.state || '',
+          country: data.country,
+          postal_code: clientData.postal_code || '',
+          industry: data.segment,
+          company_size: clientData.company_size || '',
+          status: data.status || 'active',
+          notes: data.notes,
+          created_at: data.created_at
         };
-        setClients(prev => [newClient, ...prev]);
+
+        setClients((prev) => [newClient, ...prev]);
       }
-      
+
       setIsClientModalOpen(false);
       setEditingClient(null);
     } catch (error) {
@@ -277,6 +400,7 @@ const ClientsManagement = () => {
     }
   };
 
+  // ---------- CRUD de REQUIREMENTS (por ahora solo en frontend) ----------
   const handleEditRequirement = (requirement) => {
     setEditingRequirement(requirement);
     setIsRequirementModalOpen(true);
@@ -285,9 +409,8 @@ const ClientsManagement = () => {
   const handleDeleteRequirement = async (requirementId) => {
     if (window.confirm('Are you sure you want to delete this requirement?')) {
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setRequirements(prev => prev?.filter(r => r?.id !== requirementId));
+        // TODO: conectar a Supabase (tabla client_requirements)
+        setRequirements((prev) => prev?.filter((r) => r?.id !== requirementId));
       } catch (error) {
         console.error('Error deleting requirement:', error);
       }
@@ -296,26 +419,24 @@ const ClientsManagement = () => {
 
   const handleSaveRequirement = async (requirementData) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      // TODO: conectar a Supabase (tabla client_requirements)
       if (editingRequirement) {
-        // Update existing requirement
-        setRequirements(prev => prev?.map(r => 
-          r?.id === editingRequirement?.id 
-            ? { ...r, ...requirementData, updated_at: new Date()?.toISOString() }
-            : r
-        ));
+        setRequirements((prev) =>
+          prev?.map((r) =>
+            r?.id === editingRequirement?.id
+              ? { ...r, ...requirementData, updated_at: new Date()?.toISOString() }
+              : r
+          )
+        );
       } else {
-        // Create new requirement
         const newRequirement = {
           id: `req-${Date.now()}`,
           ...requirementData,
           created_at: new Date()?.toISOString()
         };
-        setRequirements(prev => [newRequirement, ...prev]);
+        setRequirements((prev) => [newRequirement, ...prev]);
       }
-      
+
       setIsRequirementModalOpen(false);
       setEditingRequirement(null);
     } catch (error) {
@@ -324,29 +445,29 @@ const ClientsManagement = () => {
     }
   };
 
+  // ---------- Navegación a Intelligent Matching ----------
   const handleNavigateToMatching = (requirement) => {
-    // Navigate to intelligent matching with requirement context
-    navigate('/intelligent-matching', { 
-      state: { 
+    navigate('/intelligent-matching', {
+      state: {
         requirement,
-        client: selectedClient 
-      } 
+        client: selectedClient
+      }
     });
   };
 
   const getClientRequirements = () => {
     if (!selectedClient) return [];
-    return requirements?.filter(req => req?.client_id === selectedClient?.id);
+    return requirements?.filter((req) => req?.client_id === selectedClient?.id);
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="pt-16">
         <div className="max-w-7xl mx-auto p-6">
           <Breadcrumb />
-          
+
           {/* Page Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground mb-2">Clients Management</h1>
@@ -407,9 +528,9 @@ const ClientsManagement = () => {
       />
 
       {/* Loading Overlay */}
-      <LoadingOverlay 
-        isLoading={isLoading} 
-        message="Loading clients data..." 
+      <LoadingOverlay
+        isLoading={isLoading}
+        message="Loading clients data..."
       />
     </div>
   );
