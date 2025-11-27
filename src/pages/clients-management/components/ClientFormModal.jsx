@@ -4,11 +4,11 @@ import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 
-const ClientFormModal = ({ 
-  isOpen, 
-  onClose, 
-  client, 
-  onSave 
+const ClientFormModal = ({
+  isOpen,
+  onClose,
+  client,
+  onSave,
 }) => {
   const [formData, setFormData] = useState({
     company_name: '',
@@ -24,7 +24,7 @@ const ClientFormModal = ({
     industry: '',
     company_size: '',
     status: 'active',
-    notes: ''
+    notes: '',
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -33,7 +33,7 @@ const ClientFormModal = ({
     { value: 'active', label: 'Active' },
     { value: 'inactive', label: 'Inactive' },
     { value: 'pending', label: 'Pending' },
-    { value: 'suspended', label: 'Suspended' }
+    { value: 'suspended', label: 'Suspended' },
   ];
 
   const companySizeOptions = [
@@ -41,7 +41,7 @@ const ClientFormModal = ({
     { value: 'small', label: 'Small (11-50 employees)' },
     { value: 'medium', label: 'Medium (51-200 employees)' },
     { value: 'large', label: 'Large (201-1000 employees)' },
-    { value: 'enterprise', label: 'Enterprise (1000+ employees)' }
+    { value: 'enterprise', label: 'Enterprise (1000+ employees)' },
   ];
 
   const industryOptions = [
@@ -52,9 +52,10 @@ const ClientFormModal = ({
     { value: 'research', label: 'Research & Development' },
     { value: 'manufacturing', label: 'Manufacturing' },
     { value: 'distribution', label: 'Distribution' },
-    { value: 'other', label: 'Other' }
+    { value: 'other', label: 'Other' },
   ];
 
+  // Carga inicial del formulario (crear vs editar)
   useEffect(() => {
     if (client) {
       setFormData({
@@ -71,7 +72,7 @@ const ClientFormModal = ({
         industry: client?.industry || '',
         company_size: client?.company_size || '',
         status: client?.status || 'active',
-        notes: client?.notes || ''
+        notes: client?.notes || '',
       });
     } else {
       setFormData({
@@ -88,23 +89,22 @@ const ClientFormModal = ({
         industry: '',
         company_size: '',
         status: 'active',
-        notes: ''
+        notes: '',
       });
     }
     setErrors({});
   }, [client, isOpen]);
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
-    
-    // Clear error when user starts typing
+
     if (errors?.[field]) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
-        [field]: ''
+        [field]: '',
       }));
     }
   };
@@ -122,7 +122,7 @@ const ClientFormModal = ({
 
     if (!formData?.email?.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/?.test(formData?.email)) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData?.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
 
@@ -140,15 +140,16 @@ const ClientFormModal = ({
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
 
     setIsLoading(true);
     try {
+      // onSave se encarga de hacer insert/update en Supabase
+      // y de cerrar el modal desde el componente padre
       await onSave(formData);
-      onClose();
     } catch (error) {
       console.error('Error saving client:', error);
     } finally {
@@ -175,17 +176,24 @@ const ClientFormModal = ({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+        <form
+          onSubmit={handleSubmit}
+          className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]"
+        >
           <div className="space-y-6">
             {/* Company Information */}
             <div>
-              <h3 className="text-lg font-medium text-foreground mb-4">Company Information</h3>
+              <h3 className="text-lg font-medium text-foreground mb-4">
+                Company Information
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
                   label="Company Name"
                   type="text"
                   value={formData?.company_name}
-                  onChange={(e) => handleInputChange('company_name', e?.target?.value)}
+                  onChange={(e) =>
+                    handleInputChange('company_name', e?.target?.value)
+                  }
                   error={errors?.company_name}
                   required
                 />
@@ -193,7 +201,9 @@ const ClientFormModal = ({
                   label="Industry"
                   options={industryOptions}
                   value={formData?.industry}
-                  onChange={(value) => handleInputChange('industry', value)}
+                  onChange={(value) =>
+                    handleInputChange('industry', value)
+                  }
                   error={errors?.industry}
                   required
                 />
@@ -201,26 +211,34 @@ const ClientFormModal = ({
                   label="Company Size"
                   options={companySizeOptions}
                   value={formData?.company_size}
-                  onChange={(value) => handleInputChange('company_size', value)}
+                  onChange={(value) =>
+                    handleInputChange('company_size', value)
+                  }
                 />
                 <Select
                   label="Status"
                   options={statusOptions}
                   value={formData?.status}
-                  onChange={(value) => handleInputChange('status', value)}
+                  onChange={(value) =>
+                    handleInputChange('status', value)
+                  }
                 />
               </div>
             </div>
 
             {/* Contact Information */}
             <div>
-              <h3 className="text-lg font-medium text-foreground mb-4">Contact Information</h3>
+              <h3 className="text-lg font-medium text-foreground mb-4">
+                Contact Information
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
                   label="Contact Person"
                   type="text"
                   value={formData?.contact_person}
-                  onChange={(e) => handleInputChange('contact_person', e?.target?.value)}
+                  onChange={(e) =>
+                    handleInputChange('contact_person', e?.target?.value)
+                  }
                   error={errors?.contact_person}
                   required
                 />
@@ -228,13 +246,17 @@ const ClientFormModal = ({
                   label="Position"
                   type="text"
                   value={formData?.position}
-                  onChange={(e) => handleInputChange('position', e?.target?.value)}
+                  onChange={(e) =>
+                    handleInputChange('position', e?.target?.value)
+                  }
                 />
                 <Input
                   label="Email"
                   type="email"
                   value={formData?.email}
-                  onChange={(e) => handleInputChange('email', e?.target?.value)}
+                  onChange={(e) =>
+                    handleInputChange('email', e?.target?.value)
+                  }
                   error={errors?.email}
                   required
                 />
@@ -242,7 +264,9 @@ const ClientFormModal = ({
                   label="Phone"
                   type="tel"
                   value={formData?.phone}
-                  onChange={(e) => handleInputChange('phone', e?.target?.value)}
+                  onChange={(e) =>
+                    handleInputChange('phone', e?.target?.value)
+                  }
                   error={errors?.phone}
                   required
                 />
@@ -251,76 +275,93 @@ const ClientFormModal = ({
 
             {/* Address Information */}
             <div>
-              <h3 className="text-lg font-medium text-foreground mb-4">Address Information</h3>
+              <h3 className="text-lg font-medium text-foreground mb-4">
+                Address Information
+              </h3>
               <div className="space-y-4">
                 <Input
                   label="Address"
                   type="text"
                   value={formData?.address}
-                  onChange={(e) => handleInputChange('address', e?.target?.value)}
+                  onChange={(e) =>
+                    handleInputChange('address', e?.target?.value)
+                  }
                 />
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Input
                     label="City"
                     type="text"
                     value={formData?.city}
-                    onChange={(e) => handleInputChange('city', e?.target?.value)}
+                    onChange={(e) =>
+                      handleInputChange('city', e?.target?.value)
+                    }
                   />
                   <Input
                     label="State"
                     type="text"
                     value={formData?.state}
-                    onChange={(e) => handleInputChange('state', e?.target?.value)}
+                    onChange={(e) =>
+                      handleInputChange('state', e?.target?.value)
+                    }
                   />
                   <Input
                     label="Country"
                     type="text"
                     value={formData?.country}
-                    onChange={(e) => handleInputChange('country', e?.target?.value)}
+                    onChange={(e) =>
+                      handleInputChange('country', e?.target?.value)
+                    }
                   />
                 </div>
                 <Input
                   label="Postal Code"
                   type="text"
                   value={formData?.postal_code}
-                  onChange={(e) => handleInputChange('postal_code', e?.target?.value)}
+                  onChange={(e) =>
+                    handleInputChange('postal_code', e?.target?.value)
+                  }
                 />
               </div>
             </div>
 
             {/* Notes */}
             <div>
-              <h3 className="text-lg font-medium text-foreground mb-4">Additional Notes</h3>
+              <h3 className="text-lg font-medium text-foreground mb-4">
+                Additional Notes
+              </h3>
               <textarea
                 className="w-full p-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
                 rows="4"
                 placeholder="Add any additional notes about this client..."
                 value={formData?.notes}
-                onChange={(e) => handleInputChange('notes', e?.target?.value)}
+                onChange={(e) =>
+                  handleInputChange('notes', e?.target?.value)
+                }
               />
             </div>
           </div>
-        </form>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-border">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={isLoading}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="default"
-            onClick={handleSubmit}
-            loading={isLoading}
-            iconName="Save"
-            iconPosition="left"
-          >
-            {client ? 'Update Client' : 'Create Client'}
-          </Button>
-        </div>
+          {/* Footer */}
+          <div className="flex items-center justify-end space-x-3 pt-6 mt-6 border-t border-border">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={onClose}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              type="submit"
+              loading={isLoading}
+              iconName="Save"
+              iconPosition="left"
+            >
+              {client ? 'Update Client' : 'Create Client'}
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   );
