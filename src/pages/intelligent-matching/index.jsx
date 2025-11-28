@@ -31,7 +31,7 @@ const IntelligentMatching = () => {
   const [isCreateDealModalOpen, setIsCreateDealModalOpen] = useState(false);
   const [sortBy, setSortBy] = useState('similarity_score');
 
-  // ---------- MOCK DATA (por ahora) ----------
+  // Mock data for requirements
   const mockRequirements = [
     {
       id: 'req_001',
@@ -83,8 +83,9 @@ const IntelligentMatching = () => {
     }
   ];
 
+  // Mock data for matches
   const mockMatches = {
-    req_001: [
+    'req_001': [
       {
         id: 'match_001',
         supplier_id: 'sup_001',
@@ -161,7 +162,7 @@ const IntelligentMatching = () => {
         last_updated: '1 day ago'
       }
     ],
-    req_002: [
+    'req_002': [
       {
         id: 'match_004',
         supplier_id: 'sup_004',
@@ -204,8 +205,9 @@ const IntelligentMatching = () => {
   const loadRequirements = async () => {
     setIsLoading(true);
     try {
-      // Por ahora seguimos usando mocks
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Por ahora seguimos usando mock data.
+      // Más adelante podemos reemplazar esto por un fetch real a Supabase.
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       setRequirements(mockRequirements);
     } catch (error) {
       console.error('Error loading requirements:', error);
@@ -229,8 +231,8 @@ const IntelligentMatching = () => {
     setSelectedRequirement(requirement);
 
     try {
-      // Simulación de matching
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      // Simulación del proceso de matching
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       const requirementMatches = mockMatches?.[requirementId] || [];
       const filteredMatches = applyFilters(requirementMatches);
@@ -300,6 +302,7 @@ const IntelligentMatching = () => {
   const handleFiltersChange = (newFilters) => {
     setFilters(newFilters);
 
+    // Re-aplicar filtros a los matches actuales
     if (selectedRequirement && mockMatches?.[selectedRequirement?.id]) {
       const requirementMatches = mockMatches?.[selectedRequirement?.id];
       const filteredMatches = applyFilters(requirementMatches);
@@ -340,15 +343,8 @@ const IntelligentMatching = () => {
     }
 
     try {
-      // Campos básicos y seguros (ajustados al esquema típico de deals)
+      // Solo enviamos columnas que EXISTEN en la tabla deals
       const payload = {
-        // OJO: si tus columnas client_id / supplier_id son UUID,
-        // y aquí los IDs son strings mock (client_001, sup_001),
-        // déjalos en null hasta que conectemos Intelligent Matching 100% a BD.
-        client_id: null,
-        supplier_id: null,
-        client_requirement_id: null,
-        supplier_product_id: null,
         title:
           formValues?.title ||
           `${selectedRequirement.product_name} - ${selectedMatch.supplier_name}`,
@@ -362,7 +358,10 @@ const IntelligentMatching = () => {
           formValues?.probability !== undefined && formValues?.probability !== ''
             ? Number(formValues.probability)
             : 50,
-        close_date: formValues?.expectedCloseDate || selectedRequirement?.required_date || null,
+        close_date:
+          formValues?.expectedCloseDate ||
+          selectedRequirement?.required_date ||
+          null,
         status: 'open',
         source: 'intelligent_matching',
         notes: formValues?.internalNotes || null
@@ -409,8 +408,8 @@ const IntelligentMatching = () => {
                   Intelligent Matching
                 </h1>
                 <p className="text-text-secondary">
-                  AI-powered supplier-client requirement matching with similarity scoring for
-                  optimal deal creation
+                  AI-powered supplier-client requirement matching with similarity scoring
+                  for optimal deal creation
                 </p>
               </div>
               <div className="flex items-center space-x-3">
@@ -451,7 +450,9 @@ const IntelligentMatching = () => {
               </h2>
               {expandedRequirement && matches?.length > 0 && (
                 <div className="flex items-center space-x-4">
-                  <span className="text-sm text-text-secondary">Sort matches by:</span>
+                  <span className="text-sm text-text-secondary">
+                    Sort matches by:
+                  </span>
                   <Select
                     options={sortOptions}
                     value={sortBy}
@@ -466,22 +467,28 @@ const IntelligentMatching = () => {
               <div className="bg-surface border border-border rounded-lg clinical-shadow p-8 text-center">
                 <div className="flex flex-col items-center space-y-4">
                   <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                    <Icon name="FileText" size={24} className="text-text-secondary" />
+                    <Icon
+                      name="FileText"
+                      size={24}
+                      className="text-text-secondary"
+                    />
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-foreground mb-2">
                       No Requirements Found
                     </h3>
                     <p className="text-text-secondary max-w-md">
-                      There are no active client requirements to match. Create new requirements
-                      in the Clients Management section.
+                      There are no active client requirements to match. Create new
+                      requirements in the Clients Management section.
                     </p>
                   </div>
                   <Button
                     variant="default"
                     iconName="Plus"
                     iconPosition="left"
-                    onClick={() => (window.location.href = '/clients-management')}
+                    onClick={() =>
+                      (window.location.href = '/clients-management')
+                    }
                   >
                     Add Requirements
                   </Button>
@@ -533,4 +540,3 @@ const IntelligentMatching = () => {
 };
 
 export default IntelligentMatching;
-
