@@ -9,7 +9,7 @@ import ProductModal from './components/ProductModal';
 import BulkActionsModal from './components/BulkActionsModal';
 import Button from '../../components/ui/Button';
 import { Checkbox } from '../../components/ui/Checkbox';
-
+import { supabase } from '../../utils/supabaseClient';
 
 const SuppliersManagement = () => {
   // State management
@@ -21,22 +21,22 @@ const SuppliersManagement = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isProductsLoading, setIsProductsLoading] = useState(false);
-  
+
   // Modal states
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [editingProduct, setEditingProduct] = useState(null);
-  
+
   // Selection states
   const [selectedSuppliers, setSelectedSuppliers] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
-  
+
   // User role (mock - in real app this would come from auth context)
   const [userRole] = useState('editor'); // 'editor' or 'viewer'
 
-  // Mock data
+  // ---------- MOCK DATA (fallback) ----------
   const mockSuppliers = [
     {
       id: 'sup-001',
@@ -180,27 +180,60 @@ const SuppliersManagement = () => {
     }
   ];
 
-  // Initialize data
+  // ---------- Inicializar datos desde Supabase (con fallback a mocks) ----------
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setSuppliers(mockSuppliers);
-      setIsLoading(false);
+      try {
+        const { data, error } = await supabase
+          .from('suppliers')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          throw error;
+        }
+
+        const mappedSuppliers =
+          data && data.length > 0
+            ? data.map(s => ({
+                id: s.id,
+                company_name: s.name,
+                contact_person: s.contact_name,
+                email: s.contact_email,
+                phone: s.contact_phone,
+                // usamos country como "location" en la UI por ahora
+                location: s.country || '',
+                status: s.status || 'active',
+                website: '', // no está en BD aún, se queda solo en frontend
+                notes: s.notes,
+                // por ahora no tenemos tabla de productos real, dejamos 0
+                product_count: 0,
+                created_at: s.created_at
+              }))
+            : mockSuppliers;
+
+        setSuppliers(mappedSuppliers);
+      } catch (error) {
+        console.error('Error loading suppliers from Supabase, using mock data:', error);
+        setSuppliers(mockSuppliers);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     loadData();
   }, []);
 
-  // Load products when supplier is selected
+  // ---------- Cargar productos (mock) cuando cambia el supplier ----------
   useEffect(() => {
     if (selectedSupplierId) {
       const loadProducts = async () => {
         setIsProductsLoading(true);
-        // Simulate API call
         await new Promise(resolve => setTimeout(resolve, 500));
-        const supplierProducts = mockProducts?.filter(p => p?.supplier_id === selectedSupplierId);
+        const supplierProducts = mockProducts?.filter(
+          p => p?.supplier_id === selectedSupplierId
+        );
         setProducts(supplierProducts);
         setIsProductsLoading(false);
       };
@@ -211,168 +244,333 @@ const SuppliersManagement = () => {
     }
   }, [selectedSupplierId]);
 
-  // Filter suppliers based on search and status
+  // ---------- Filtros ----------
   const filteredSuppliers = suppliers?.filter(supplier => {
-    const matchesSearch = supplier?.company_name?.toLowerCase()?.includes(searchTerm?.toLowerCase()) ||
-                         supplier?.contact_person?.toLowerCase()?.includes(searchTerm?.toLowerCase()) ||
-                         supplier?.location?.toLowerCase()?.includes(searchTerm?.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || supplier?.status === statusFilter;
+    const search = searchTerm?.toLowerCase();
+    const matchesSearch =
+      supplier?.company_name?.toLowerCase()?.includes(search) ||
+      supplier?.contact_person?.toLowerCase()?.includes(search) ||
+      supplier?.location?.toLowerCase()?.includes(search);
+
+    const matchesStatus =
+      statusFilter === 'all' || supplier?.status === statusFilter;
+
     return matchesSearch && matchesStatus;
   });
 
-  // Handle supplier selection
-  const handleSelectSupplier = (supplierId) => {
+  // ---------- Selección de supplier ----------
+  const handleSelectSupplier = supplierId => {
     setSelectedSupplierId(supplierId);
     const supplier = suppliers?.find(s => s?.id === supplierId);
     setSelectedSupplier(supplier);
   };
 
-  // Handle supplier CRUD operations
-  const handleEditSupplier = (supplier) => {
+  // ---------- CRUD Suppliers (con Supabase + local state) ----------
+  const handleEditSupplier = supplier => {
     setEditingSupplier(supplier);
     setIsSupplierModalOpen(true);
   };
 
-  const handleSaveSupplier = async (supplierData) => {
+  const handleSaveSupplier = async supplierData => {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    if (editingSupplier) {
-      // Update existing supplier
-      setSuppliers(prev => prev?.map(s => 
-        s?.id === editingSupplier?.id 
-          ? { ...s, ...supplierData, updated_at: new Date()?.toISOString() }
-          : s
-      ));
-    } else {
-      // Add new supplier
-      const newSupplier = {
-        id: `sup-${Date.now()}`,
-        ...supplierData,
-        product_count: 0,
-        created_at: new Date()?.toISOString()
-      };
-      setSuppliers(prev => [newSupplier, ...prev]);
+    try {
+      if (editingSupplier) {
+        // UPDATE en Supabase solo si no es mock (UUID vs “sup-xxx”)
+        if (!editingSupplier.id.startsWith('sup-')) {
+          const { error } = await supabase
+            .from('suppliers')
+            .update({
+              name: supplierData.company_name,
+              country: supplierData.location,
+              segment: null, // podríamos usar supplierData.segment / industry más adelante
+              contact_name: supplierData.contact_person,
+              contact_email: supplierData.email,
+              contact_phone: supplierData.phone,
+              status: supplierData.status,
+              notes: supplierData.notes
+            })
+            .eq('id', editingSupplier.id);
+
+          if (error) {
+            console.error('Error updating supplier in Supabase:', error);
+            alert(
+              `No se pudo actualizar el proveedor en Supabase: ${
+                error.message || 'Unknown error'
+              }`
+            );
+          }
+        }
+
+        // Actualizar estado local
+        setSuppliers(prev =>
+          prev?.map(s =>
+            s?.id === editingSupplier?.id
+              ? {
+                  ...s,
+                  ...supplierData,
+                  updated_at: new Date().toISOString()
+                }
+              : s
+          )
+        );
+
+        if (selectedSupplier?.id === editingSupplier?.id) {
+          setSelectedSupplier(prev =>
+            prev ? { ...prev, ...supplierData } : prev
+          );
+        }
+      } else {
+        // INSERT en Supabase
+        const { data, error } = await supabase
+          .from('suppliers')
+          .insert({
+            name: supplierData.company_name,
+            country: supplierData.location,
+            segment: null,
+            contact_name: supplierData.contact_person,
+            contact_email: supplierData.email,
+            contact_phone: supplierData.phone,
+            status: supplierData.status,
+            notes: supplierData.notes
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error inserting supplier in Supabase:', error);
+          alert(
+            `No se pudo crear el proveedor en Supabase: ${
+              error.message || 'Unknown error'
+            }`
+          );
+          throw error;
+        }
+
+        const newSupplier = {
+          id: data.id,
+          company_name: data.name,
+          contact_person: data.contact_name,
+          email: data.contact_email,
+          phone: data.contact_phone,
+          location: data.country || '',
+          status: data.status || 'active',
+          website: supplierData.website || '',
+          notes: data.notes,
+          product_count: 0,
+          created_at: data.created_at
+        };
+
+        setSuppliers(prev => [newSupplier, ...prev]);
+      }
+
+      setIsSupplierModalOpen(false);
+      setEditingSupplier(null);
+    } catch (error) {
+      console.error('Error saving supplier:', error);
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsSupplierModalOpen(false);
-    setEditingSupplier(null);
-    setIsLoading(false);
   };
 
-  const handleDeleteSupplier = async (supplierId) => {
-    if (window.confirm('Are you sure you want to delete this supplier? This will also delete all associated products.')) {
-      setIsLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+  const handleDeleteSupplier = async supplierId => {
+    if (
+      !window.confirm(
+        'Are you sure you want to delete this supplier? This will also delete all associated products.'
+      )
+    ) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Solo borrar en Supabase si no es un supplier mock
+      if (!supplierId.startsWith('sup-')) {
+        const { error } = await supabase
+          .from('suppliers')
+          .delete()
+          .eq('id', supplierId);
+
+        if (error) {
+          console.error('Error deleting supplier in Supabase:', error);
+          alert(
+            `No se pudo eliminar el proveedor en Supabase: ${
+              error.message || 'Unknown error'
+            }`
+          );
+        }
+      }
+
+      // Actualizar estado local
       setSuppliers(prev => prev?.filter(s => s?.id !== supplierId));
       if (selectedSupplierId === supplierId) {
         setSelectedSupplierId(null);
         setSelectedSupplier(null);
         setProducts([]);
       }
+    } catch (error) {
+      console.error('Error deleting supplier:', error);
+      alert('Ocurrió un error eliminando el proveedor.');
+    } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle product CRUD operations
-  const handleEditProduct = (product, supplierId) => {
+  // ---------- CRUD Products (solo frontend / mock por ahora) ----------
+  const handleEditProduct = (product /*, supplierId*/) => {
     setEditingProduct(product);
     setIsProductModalOpen(true);
   };
 
-  const handleSaveProduct = async (productData) => {
+  const handleSaveProduct = async productData => {
     setIsProductsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    if (editingProduct) {
-      // Update existing product
-      const updatedProducts = products?.map(p => 
-        p?.id === editingProduct?.id 
-          ? { ...p, ...productData, updated_at: new Date()?.toISOString() }
-          : p
-      );
-      setProducts(updatedProducts);
-    } else {
-      // Add new product
-      const newProduct = {
-        id: `prod-${Date.now()}`,
-        ...productData,
-        created_at: new Date()?.toISOString()
-      };
-      setProducts(prev => [newProduct, ...prev]);
-      
-      // Update supplier product count
-      setSuppliers(prev => prev?.map(s => 
-        s?.id === productData?.supplier_id 
-          ? { ...s, product_count: s?.product_count + 1 }
-          : s
-      ));
-    }
-    
-    setIsProductModalOpen(false);
-    setEditingProduct(null);
-    setIsProductsLoading(false);
-  };
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-  const handleDeleteProduct = async (productId) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
-      setIsProductsLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      setProducts(prev => prev?.filter(p => p?.id !== productId));
-      
-      // Update supplier product count
-      if (selectedSupplier) {
-        setSuppliers(prev => prev?.map(s => 
-          s?.id === selectedSupplier?.id 
-            ? { ...s, product_count: Math.max(0, s?.product_count - 1) }
-            : s
-        ));
+      if (editingProduct) {
+        const updatedProducts = products?.map(p =>
+          p?.id === editingProduct?.id
+            ? { ...p, ...productData, updated_at: new Date()?.toISOString() }
+            : p
+        );
+        setProducts(updatedProducts);
+      } else {
+        const newProduct = {
+          id: `prod-${Date.now()}`,
+          ...productData,
+          created_at: new Date()?.toISOString()
+        };
+        setProducts(prev => [newProduct, ...prev]);
+
+        // Update supplier product count
+        setSuppliers(prev =>
+          prev?.map(s =>
+            s?.id === productData?.supplier_id
+              ? { ...s, product_count: (s?.product_count || 0) + 1 }
+              : s
+          )
+        );
       }
+
+      setIsProductModalOpen(false);
+      setEditingProduct(null);
+    } catch (error) {
+      console.error('Error saving product:', error);
+    } finally {
       setIsProductsLoading(false);
     }
   };
 
-  // Handle bulk actions
-  const handleBulkAction = async (actionData) => {
-    setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    switch (actionData?.type) {
-      case 'update_status':
-        setSuppliers(prev => prev?.map(s => 
-          actionData?.supplierIds?.includes(s?.id) 
-            ? { ...s, status: actionData?.status, updated_at: new Date()?.toISOString() }
-            : s
-        ));
-        break;
-      case 'delete':
-        setSuppliers(prev => prev?.filter(s => !actionData?.supplierIds?.includes(s?.id)));
-        if (actionData?.supplierIds?.includes(selectedSupplierId)) {
-          setSelectedSupplierId(null);
-          setSelectedSupplier(null);
-          setProducts([]);
-        }
-        break;
-      case 'export':
-        // In real app, this would trigger a download
-        console.log('Exporting suppliers:', actionData?.supplierIds);
-        break;
+  const handleDeleteProduct = async productId => {
+    if (!window.confirm('Are you sure you want to delete this product?')) {
+      return;
     }
-    
-    setSelectedSuppliers([]);
-    setSelectAll(false);
-    setIsBulkModalOpen(false);
-    setIsLoading(false);
+
+    setIsProductsLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      setProducts(prev => prev?.filter(p => p?.id !== productId));
+
+      if (selectedSupplier) {
+        setSuppliers(prev =>
+          prev?.map(s =>
+            s?.id === selectedSupplier?.id
+              ? {
+                  ...s,
+                  product_count: Math.max(0, (s?.product_count || 0) - 1)
+                }
+              : s
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error deleting product:', error);
+    } finally {
+      setIsProductsLoading(false);
+    }
   };
 
-  // Handle supplier selection for bulk actions
+  // ---------- Bulk actions ----------
+  const handleBulkAction = async actionData => {
+    setIsLoading(true);
+    try {
+      const realIds = (actionData?.supplierIds || []).filter(
+        id => !id.startsWith('sup-')
+      );
+
+      switch (actionData?.type) {
+        case 'update_status':
+          // Actualizar en Supabase para suppliers reales
+          if (realIds.length > 0) {
+            const { error } = await supabase
+              .from('suppliers')
+              .update({ status: actionData?.status })
+              .in('id', realIds);
+
+            if (error) {
+              console.error(
+                'Error updating suppliers status in Supabase:',
+                error
+              );
+            }
+          }
+
+          // Actualizar estado local
+          setSuppliers(prev =>
+            prev?.map(s =>
+              actionData?.supplierIds?.includes(s?.id)
+                ? {
+                    ...s,
+                    status: actionData?.status,
+                    updated_at: new Date()?.toISOString()
+                  }
+                : s
+            )
+          );
+          break;
+
+        case 'delete':
+          if (realIds.length > 0) {
+            const { error } = await supabase
+              .from('suppliers')
+              .delete()
+              .in('id', realIds);
+
+            if (error) {
+              console.error('Error deleting suppliers in Supabase:', error);
+            }
+          }
+
+          setSuppliers(prev =>
+            prev?.filter(s => !actionData?.supplierIds?.includes(s?.id))
+          );
+          if (actionData?.supplierIds?.includes(selectedSupplierId)) {
+            setSelectedSupplierId(null);
+            setSelectedSupplier(null);
+            setProducts([]);
+          }
+          break;
+
+        case 'export':
+          // Aquí en una app real generarías un CSV/Excel
+          console.log('Exporting suppliers:', actionData?.supplierIds);
+          break;
+
+        default:
+          break;
+      }
+
+      setSelectedSuppliers([]);
+      setSelectAll(false);
+      setIsBulkModalOpen(false);
+    } catch (error) {
+      console.error('Error in bulk action:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ---------- Selección de suppliers para bulk ----------
   const handleSupplierSelect = (supplierId, isSelected) => {
     if (isSelected) {
       setSelectedSuppliers(prev => [...prev, supplierId]);
@@ -381,7 +579,7 @@ const SuppliersManagement = () => {
     }
   };
 
-  const handleSelectAll = (isSelected) => {
+  const handleSelectAll = isSelected => {
     setSelectAll(isSelected);
     if (isSelected) {
       setSelectedSuppliers(filteredSuppliers?.map(s => s?.id));
@@ -396,33 +594,50 @@ const SuppliersManagement = () => {
       <main className="pt-16">
         <div className="max-w-7xl mx-auto px-6 py-8">
           <Breadcrumb />
-          
+
           {/* Page Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-semibold text-foreground">Suppliers Management</h1>
+                <h1 className="text-2xl font-semibold text-foreground">
+                  Suppliers Management
+                </h1>
                 <p className="text-text-secondary mt-1">
                   Manage your supplier network and product catalogs
                 </p>
               </div>
-              
-              {/* Bulk Actions */}
-              {selectedSuppliers?.length > 0 && userRole === 'editor' && (
-                <div className="flex items-center space-x-3">
-                  <span className="text-sm text-text-secondary">
-                    {selectedSuppliers?.length} selected
-                  </span>
+
+              {/* Bulk Actions + Add Supplier */}
+              <div className="flex items-center space-x-3">
+                {selectedSuppliers?.length > 0 && userRole === 'editor' && (
+                  <div className="flex items-center space-x-3">
+                    <span className="text-sm text-text-secondary">
+                      {selectedSuppliers?.length} selected
+                    </span>
+                    <Button
+                      variant="outline"
+                      iconName="Settings"
+                      iconPosition="left"
+                      onClick={() => setIsBulkModalOpen(true)}
+                    >
+                      Bulk Actions
+                    </Button>
+                  </div>
+                )}
+
+                {userRole === 'editor' && (
                   <Button
-                    variant="outline"
-                    iconName="Settings"
+                    iconName="Plus"
                     iconPosition="left"
-                    onClick={() => setIsBulkModalOpen(true)}
+                    onClick={() => {
+                      setEditingSupplier(null);
+                      setIsSupplierModalOpen(true);
+                    }}
                   >
-                    Bulk Actions
+                    Add New Supplier
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
@@ -436,7 +651,7 @@ const SuppliersManagement = () => {
                   <Checkbox
                     label={`Select all suppliers (${filteredSuppliers?.length})`}
                     checked={selectAll}
-                    onChange={(e) => handleSelectAll(e?.target?.checked)}
+                    onChange={e => handleSelectAll(e?.target?.checked)}
                   />
                 </div>
               )}
@@ -474,6 +689,7 @@ const SuppliersManagement = () => {
           </div>
         </div>
       </main>
+
       {/* Modals */}
       <SupplierModal
         isOpen={isSupplierModalOpen}
@@ -485,6 +701,7 @@ const SuppliersManagement = () => {
         onSave={handleSaveSupplier}
         isLoading={isLoading}
       />
+
       <ProductModal
         isOpen={isProductModalOpen}
         onClose={() => {
@@ -496,6 +713,7 @@ const SuppliersManagement = () => {
         onSave={handleSaveProduct}
         isLoading={isProductsLoading}
       />
+
       <BulkActionsModal
         isOpen={isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
@@ -503,6 +721,7 @@ const SuppliersManagement = () => {
         onBulkAction={handleBulkAction}
         isLoading={isLoading}
       />
+
       {/* Loading Overlay */}
       <LoadingOverlay isLoading={isLoading} message="Processing..." />
     </div>
