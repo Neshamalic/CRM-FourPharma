@@ -1,348 +1,272 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '../../components/ui/Header';
 import Breadcrumb from '../../components/ui/Breadcrumb';
-import Icon from '../../components/AppIcon';
-import Button from '../../components/ui/Button';
-import Select from '../../components/ui/Select';
-import RequirementCard from './components/RequirementCard';
-import FilterPanel from './components/FilterPanel';
-import MatchingResults from './components/MatchingResults';
-import CreateDealModal from './components/CreateDealModal';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import Button from '../../components/ui/Button';
+import { supabase } from '../../utils/supabaseClient';
 
 const IntelligentMatching = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // State principal
+  const [clients, setClients] = useState([]);
   const [requirements, setRequirements] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [products, setProducts] = useState([]);
+
+  const [selectedClient, setSelectedClient] = useState(null);
   const [selectedRequirement, setSelectedRequirement] = useState(null);
-  const [matches, setMatches] = useState([]);
+
   const [isLoading, setIsLoading] = useState(true);
-  const [isMatchingLoading, setIsMatchingLoading] = useState(false);
-  const [expandedRequirement, setExpandedRequirement] = useState(null);
-  const [filters, setFilters] = useState({
-    similarityThreshold: '60',
-    location: '',
-    leadTime: '',
-    maxPrice: '',
-    minMoq: '',
-    minQuantity: ''
-  });
-  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
-  const [selectedMatch, setSelectedMatch] = useState(null);
-  const [isCreateDealModalOpen, setIsCreateDealModalOpen] = useState(false);
-  const [sortBy, setSortBy] = useState('similarity_score');
+  const [isMatching, setIsMatching] = useState(false);
 
-  // Mock data for requirements
-  const mockRequirements = [
-    {
-      id: 'req_001',
-      client_id: 'client_001',
-      client_name: 'MedCorp Pharmaceuticals',
-      product_name: 'Amoxicillin Capsules',
-      api_name: 'Amoxicillin',
-      dosage_form: 'Capsules',
-      strength: '500mg',
-      pack_size: '10x10',
-      quantity: 100000,
-      budget_usd: 50000,
-      required_date: '2025-03-15',
-      priority: 'High',
-      status: 'Active',
-      notes: 'Urgent requirement for Q1 2025. Quality certification required.'
-    },
-    {
-      id: 'req_002',
-      client_id: 'client_002',
-      client_name: 'Global Health Solutions',
-      product_name: 'Paracetamol Tablets',
-      api_name: 'Paracetamol',
-      dosage_form: 'Tablets',
-      strength: '650mg',
-      pack_size: '20x10',
-      quantity: 250000,
-      budget_usd: 75000,
-      required_date: '2025-04-20',
-      priority: 'Medium',
-      status: 'Active',
-      notes: 'Regular supply needed for hospital chain.'
-    },
-    {
-      id: 'req_003',
-      client_id: 'client_003',
-      client_name: 'PharmaTech Industries',
-      product_name: 'Metformin Tablets',
-      api_name: 'Metformin HCl',
-      dosage_form: 'Tablets',
-      strength: '1000mg',
-      pack_size: '15x10',
-      quantity: 150000,
-      budget_usd: 60000,
-      required_date: '2025-05-10',
-      priority: 'Low',
-      status: 'Pending',
-      notes: 'Extended release formulation preferred.'
-    }
-  ];
+  const [errorMessage, setErrorMessage] = useState('');
 
-  // Mock data for matches
-  const mockMatches = {
-    'req_001': [
-      {
-        id: 'match_001',
-        supplier_id: 'sup_001',
-        supplier_name: 'Apex Pharmaceuticals Ltd',
-        supplier_location: 'Mumbai, India',
-        supplier_type: 'Manufacturer',
-        product_id: 'prod_001',
-        product_name: 'Amoxicillin Capsules 500mg',
-        api_name: 'Amoxicillin',
-        dosage_form: 'Capsules',
-        strength: '500mg',
-        pack_size: '10x10',
-        unit_price_usd: 0.45,
-        moq: 50000,
-        lead_time_days: 21,
-        available_quantity: 500000,
-        similarity_score: 95,
-        key_differentiators: [
-          'WHO-GMP certified facility',
-          'Competitive pricing below budget',
-          'Fast delivery within 3 weeks',
-          'Large inventory availability'
-        ],
-        last_updated: '2 hours ago'
-      },
-      {
-        id: 'match_002',
-        supplier_id: 'sup_002',
-        supplier_name: 'BioMed Solutions Inc',
-        supplier_location: 'Hyderabad, India',
-        supplier_type: 'Manufacturer',
-        product_id: 'prod_002',
-        product_name: 'Amoxicillin Capsules 500mg',
-        api_name: 'Amoxicillin',
-        dosage_form: 'Capsules',
-        strength: '500mg',
-        pack_size: '10x10',
-        unit_price_usd: 0.48,
-        moq: 25000,
-        lead_time_days: 28,
-        available_quantity: 300000,
-        similarity_score: 92,
-        key_differentiators: [
-          'FDA approved facility',
-          'Lower MOQ requirement',
-          'Established quality track record',
-          'Flexible packaging options'
-        ],
-        last_updated: '4 hours ago'
-      },
-      {
-        id: 'match_003',
-        supplier_id: 'sup_003',
-        supplier_name: 'Global Pharma Manufacturing',
-        supplier_location: 'Ahmedabad, India',
-        supplier_type: 'Contract Manufacturer',
-        product_id: 'prod_003',
-        product_name: 'Amoxicillin Capsules 500mg',
-        api_name: 'Amoxicillin',
-        dosage_form: 'Capsules',
-        strength: '500mg',
-        pack_size: '10x10',
-        unit_price_usd: 0.52,
-        moq: 100000,
-        lead_time_days: 35,
-        available_quantity: 200000,
-        similarity_score: 88,
-        key_differentiators: [
-          'ISO 13485 certified',
-          'Custom formulation capabilities',
-          'Strong regulatory support',
-          'Cost-effective for large volumes'
-        ],
-        last_updated: '1 day ago'
-      }
-    ],
-    'req_002': [
-      {
-        id: 'match_004',
-        supplier_id: 'sup_004',
-        supplier_name: 'MediCore Pharmaceuticals',
-        supplier_location: 'Chennai, India',
-        supplier_type: 'Manufacturer',
-        product_id: 'prod_004',
-        product_name: 'Paracetamol Tablets 650mg',
-        api_name: 'Paracetamol',
-        dosage_form: 'Tablets',
-        strength: '650mg',
-        pack_size: '20x10',
-        unit_price_usd: 0.28,
-        moq: 100000,
-        lead_time_days: 25,
-        available_quantity: 800000,
-        similarity_score: 94,
-        key_differentiators: [
-          'Excellent price point',
-          'High volume capacity',
-          'Proven hospital supply experience',
-          'Consistent quality standards'
-        ],
-        last_updated: '3 hours ago'
-      }
-    ]
-  };
-
-  const sortOptions = [
-    { value: 'similarity_score', label: 'Similarity Score (High to Low)' },
-    { value: 'unit_price_usd', label: 'Price (Low to High)' },
-    { value: 'lead_time_days', label: 'Lead Time (Shortest First)' },
-    { value: 'available_quantity', label: 'Available Quantity (High to Low)' }
-  ];
-
+  // ---- 1. Cargar datos iniciales desde Supabase ----
   useEffect(() => {
-    loadRequirements();
-  }, []);
+    const loadData = async () => {
+      setIsLoading(true);
+      setErrorMessage('');
+      try {
+        // 1) Clients
+        const { data: clientsData, error: clientsError } = await supabase
+          .from('clients')
+          .select('*')
+          .order('created_at', { ascending: false });
 
-  const loadRequirements = async () => {
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setRequirements(mockRequirements);
-    } catch (error) {
-      console.error('Error loading requirements:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        if (clientsError) throw clientsError;
 
-  const handleViewMatches = async (requirementId) => {
-    if (expandedRequirement === requirementId) {
-      setExpandedRequirement(null);
-      setMatches([]);
+        const mappedClients = (clientsData || []).map(c => ({
+          id: c.id,
+          name: c.name,
+          country: c.country,
+          segment: c.segment,
+          contact_name: c.contact_name,
+          contact_email: c.contact_email,
+          contact_phone: c.contact_phone,
+          status: c.status || 'active',
+          notes: c.notes,
+          created_at: c.created_at
+        }));
+
+        setClients(mappedClients);
+
+        // 2) Requirements
+        const { data: reqsData, error: reqsError } = await supabase
+          .from('client_requirements')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (reqsError) throw reqsError;
+
+        const mappedRequirements = (reqsData || []).map(r => ({
+          id: r.id,
+          client_id: r.client_id,
+          product_name: r.product_name,
+          api_name: r.api_name || '',
+          dosage_form: r.dosage_form || '',
+          strength: r.strength || '',
+          quantity: r.annual_volume || null,
+          unit: r.unit || '',
+          budget_usd: r.budget_usd || null,
+          deadline: r.deadline || null,
+          priority: r.priority || '',
+          status: r.status || 'open',
+          notes: r.notes || '',
+          created_at: r.created_at
+        }));
+
+        setRequirements(mappedRequirements);
+
+        // 3) Suppliers
+        const { data: supData, error: supError } = await supabase
+          .from('suppliers')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (supError) throw supError;
+
+        const mappedSuppliers = (supData || []).map(s => ({
+          id: s.id,
+          name: s.name,
+          country: s.country,
+          status: s.status || 'active',
+          website: s.website || '',
+          contact_name: s.contact_name || '',
+          contact_email: s.contact_email || '',
+          contact_phone: s.contact_phone || '',
+          notes: s.notes || '',
+          created_at: s.created_at
+        }));
+
+        setSuppliers(mappedSuppliers);
+
+        // 4) Products
+        const { data: prodData, error: prodError } = await supabase
+          .from('supplier_products')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (prodError) throw prodError;
+
+        const mappedProducts = (prodData || []).map(p => ({
+          id: p.id,
+          supplier_id: p.supplier_id,
+          api_name: p.api_name || '',
+          dosage_form: p.dosage_form || '',
+          strength: p.strength || '',
+          pack_size: p.pack_size || '',
+          unit_price_usd: p.unit_price_usd,
+          moq: p.moq,
+          lead_time_days: p.lead_time_days,
+          description: p.description || ''
+        }));
+
+        setProducts(mappedProducts);
+
+        // 5) Preselección si venimos desde ClientsManagement
+        if (location.state?.client) {
+          const clientFromState = location.state.client;
+          const reqFromState = location.state.requirement;
+
+          const foundClient = mappedClients.find(c => c.id === clientFromState.id) || null;
+          setSelectedClient(foundClient || null);
+
+          if (reqFromState) {
+            const foundReq = mappedRequirements.find(r => r.id === reqFromState.id) || null;
+            setSelectedRequirement(foundReq || null);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading data in Intelligent Matching:', error);
+        setErrorMessage('Error loading data from Supabase. Please try again or check console.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [location.state]);
+
+  // ---- 2. Helpers para selección de cliente y requirement ----
+  const clientRequirements = useMemo(() => {
+    if (!selectedClient) return [];
+    return requirements.filter(r => r.client_id === selectedClient.id);
+  }, [requirements, selectedClient]);
+
+  const handleClientChange = event => {
+    const value = event.target.value;
+    if (!value) {
+      setSelectedClient(null);
       setSelectedRequirement(null);
       return;
     }
+    const client = clients.find(c => c.id === value);
+    setSelectedClient(client || null);
+    setSelectedRequirement(null);
+  };
 
-    setIsMatchingLoading(true);
-    setExpandedRequirement(requirementId);
-    
-    const requirement = requirements?.find(req => req?.id === requirementId);
-    setSelectedRequirement(requirement);
-
-    try {
-      // Simulate AI matching process
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const requirementMatches = mockMatches?.[requirementId] || [];
-      const filteredMatches = applyFilters(requirementMatches);
-      const sortedMatches = sortMatches(filteredMatches);
-      
-      setMatches(sortedMatches);
-    } catch (error) {
-      console.error('Error finding matches:', error);
-      setMatches([]);
-    } finally {
-      setIsMatchingLoading(false);
+  const handleRequirementChange = event => {
+    const value = event.target.value;
+    if (!value) {
+      setSelectedRequirement(null);
+      return;
     }
+    const req = clientRequirements.find(r => r.id === value);
+    setSelectedRequirement(req || null);
   };
 
-  const applyFilters = (matchList) => {
-    return matchList?.filter(match => {
-      if (filters?.similarityThreshold && match?.similarity_score < parseInt(filters?.similarityThreshold)) {
-        return false;
-      }
-      if (filters?.location && !match?.supplier_location?.toLowerCase()?.includes(filters?.location?.toLowerCase())) {
-        return false;
-      }
-      if (filters?.leadTime && match?.lead_time_days > parseInt(filters?.leadTime)) {
-        return false;
-      }
-      if (filters?.maxPrice && match?.unit_price_usd > parseFloat(filters?.maxPrice)) {
-        return false;
-      }
-      if (filters?.minMoq && match?.moq < parseInt(filters?.minMoq)) {
-        return false;
-      }
-      if (filters?.minQuantity && match?.available_quantity < parseInt(filters?.minQuantity)) {
-        return false;
-      }
-      return true;
-    });
-  };
+  // ---- 3. Lógica de matching ----
+  const computeMatchScore = (requirement, product, supplier, client) => {
+    if (!requirement || !product) return 0;
 
-  const sortMatches = (matchList) => {
-    return [...matchList]?.sort((a, b) => {
-      switch (sortBy) {
-        case 'similarity_score':
-          return b?.similarity_score - a?.similarity_score;
-        case 'unit_price_usd':
-          return a?.unit_price_usd - b?.unit_price_usd;
-        case 'lead_time_days':
-          return a?.lead_time_days - b?.lead_time_days;
-        case 'available_quantity':
-          return b?.available_quantity - a?.available_quantity;
-        default:
-          return b?.similarity_score - a?.similarity_score;
-      }
-    });
-  };
+    let score = 0;
 
-  const handleFiltersChange = (newFilters) => {
-    setFilters(newFilters);
-    
-    // Re-apply filters to current matches
-    if (selectedRequirement && mockMatches?.[selectedRequirement?.id]) {
-      const requirementMatches = mockMatches?.[selectedRequirement?.id];
-      const filteredMatches = applyFilters(requirementMatches);
-      const sortedMatches = sortMatches(filteredMatches);
-      setMatches(sortedMatches);
+    const reqApi = (requirement.api_name || '').toLowerCase().trim();
+    const prodApi = (product.api_name || '').toLowerCase().trim();
+
+    const reqDosage = (requirement.dosage_form || '').toLowerCase().trim();
+    const prodDosage = (product.dosage_form || '').toLowerCase().trim();
+
+    const reqStrength = (requirement.strength || '').toLowerCase().trim();
+    const prodStrength = (product.strength || '').toLowerCase().trim();
+
+    // API match
+    if (reqApi && prodApi && reqApi === prodApi) {
+      score += 50;
+    } else if (reqApi && prodApi && prodApi.includes(reqApi)) {
+      score += 30;
     }
-  };
 
-  const handleClearFilters = () => {
-    const clearedFilters = {
-      similarityThreshold: '60',
-      location: '',
-      leadTime: '',
-      maxPrice: '',
-      minMoq: '',
-      minQuantity: ''
-    };
-    setFilters(clearedFilters);
-    handleFiltersChange(clearedFilters);
-  };
-
-  const handleSortChange = (newSortBy) => {
-    setSortBy(newSortBy);
-    const sortedMatches = sortMatches(matches);
-    setMatches(sortedMatches);
-  };
-
-  const handleCreateDeal = (match) => {
-    setSelectedMatch(match);
-    setIsCreateDealModalOpen(true);
-  };
-
-  const handleDealCreated = async (dealData) => {
-    try {
-      // Simulate API call to create deal
-      console.log('Creating deal:', dealData);
-      
-      // Show success message or redirect to deals page
-      alert('Deal created successfully! Redirecting to deals management...');
-      
-      // In a real app, you would navigate to the deals page
-      // window.location.href = '/deals-management';
-    } catch (error) {
-      console.error('Error creating deal:', error);
-      alert('Error creating deal. Please try again.');
+    // Dosage form match
+    if (reqDosage && prodDosage && reqDosage === prodDosage) {
+      score += 20;
+    } else if (reqDosage && prodDosage && prodDosage.includes(reqDosage)) {
+      score += 10;
     }
+
+    // Strength match
+    if (reqStrength && prodStrength && reqStrength === prodStrength) {
+      score += 15;
+    }
+
+    // Country / región
+    if (client?.country && supplier?.country && client.country === supplier.country) {
+      score += 10;
+    }
+
+    // Budget
+    if (requirement.budget_usd && product.unit_price_usd) {
+      const maxUnitPrice = Number(requirement.budget_usd) / (Number(requirement.quantity) || 1);
+      if (product.unit_price_usd <= maxUnitPrice) {
+        score += 5;
+      }
+    }
+
+    return Math.min(score, 100);
   };
+
+  const matchResults = useMemo(() => {
+    if (!selectedRequirement || !selectedClient) return [];
+
+    const activeSuppliers = suppliers.filter(s => s.status === 'active');
+
+    const rows = products
+      .map(product => {
+        const supplier = activeSuppliers.find(s => s.id === product.supplier_id);
+        if (!supplier) return null;
+
+        const score = computeMatchScore(
+          selectedRequirement,
+          product,
+          supplier,
+          selectedClient
+        );
+
+        return {
+          id: `${product.id}-${supplier.id}`,
+          score,
+          supplier,
+          product
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.score - a.score);
+
+    return rows;
+  }, [products, suppliers, selectedRequirement, selectedClient]);
+
+  // ---- 4. UI ----
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <LoadingOverlay isLoading={true} message="Loading requirements..." />
+        <main className="pt-16">
+          <LoadingOverlay isLoading={true} message="Loading intelligent matching data..." />
+        </main>
       </div>
     );
   }
@@ -351,134 +275,226 @@ const IntelligentMatching = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="pt-16">
-        <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="max-w-7xl mx-auto p-6">
           <Breadcrumb />
-          
+
           {/* Page Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">
-                  Intelligent Matching
-                </h1>
-                <p className="text-text-secondary">
-                  AI-powered supplier-client requirement matching with similarity scoring for optimal deal creation
-                </p>
-              </div>
-              <div className="flex items-center space-x-3">
-                <Button
-                  variant="outline"
-                  iconName="RefreshCw"
-                  iconPosition="left"
-                  onClick={loadRequirements}
-                >
-                  Refresh
-                </Button>
-                <Button
-                  variant="default"
-                  iconName="Settings"
-                  iconPosition="left"
-                  onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
-                >
-                  Configure Matching
-                </Button>
-              </div>
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">
+                Intelligent Matching
+              </h1>
+              <p className="text-text-secondary">
+                Match client requirements with supplier product portfolios using structured criteria.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 mt-4 sm:mt-0">
+              <Button
+                variant="outline"
+                iconName="ArrowLeft"
+                iconPosition="left"
+                onClick={() => navigate('/clients-management')}
+              >
+                Back to Clients
+              </Button>
             </div>
           </div>
 
-          {/* Filter Panel */}
-          <FilterPanel
-            filters={filters}
-            onFiltersChange={handleFiltersChange}
-            onClearFilters={handleClearFilters}
-            isOpen={isFilterPanelOpen}
-            onToggle={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
-          />
+          {errorMessage && (
+            <div className="mb-4 p-3 rounded-md bg-red-100 text-red-700 text-sm">
+              {errorMessage}
+            </div>
+          )}
 
-          {/* Requirements List */}
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-foreground">
-                Client Requirements ({requirements?.length})
-              </h2>
-              {expandedRequirement && matches?.length > 0 && (
-                <div className="flex items-center space-x-4">
-                  <span className="text-sm text-text-secondary">
-                    Sort matches by:
-                  </span>
-                  <Select
-                    options={sortOptions}
-                    value={sortBy}
-                    onChange={handleSortChange}
-                    className="w-64"
-                  />
-                </div>
-              )}
+          {/* Selección de Cliente y Requirement */}
+          <div className="bg-surface rounded-lg clinical-shadow p-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Client selector */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Select Client
+                </label>
+                <select
+                  className="w-full border border-border rounded-md px-3 py-2 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={selectedClient?.id || ''}
+                  onChange={handleClientChange}
+                >
+                  <option value="">-- Choose client --</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.country ? `(${c.country})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Requirement selector */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Select Requirement
+                </label>
+                <select
+                  className="w-full border border-border rounded-md px-3 py-2 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={selectedRequirement?.id || ''}
+                  onChange={handleRequirementChange}
+                  disabled={!selectedClient}
+                >
+                  <option value="">
+                    {selectedClient ? '-- Choose requirement --' : 'Select a client first'}
+                  </option>
+                  {clientRequirements.map(r => (
+                    <option key={r.id} value={r.id}>
+                      {r.product_name || r.api_name || 'Unnamed requirement'} · {r.dosage_form} {r.strength}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {requirements?.length === 0 ? (
-              <div className="bg-surface border border-border rounded-lg clinical-shadow p-8 text-center">
-                <div className="flex flex-col items-center space-y-4">
-                  <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                    <Icon name="FileText" size={24} className="text-text-secondary" />
+            {/* Resumen de requirement seleccionado */}
+            {selectedRequirement && (
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="p-3 rounded-md bg-muted">
+                  <div className="font-medium text-foreground mb-1">Product</div>
+                  <div className="text-text-secondary">
+                    {selectedRequirement.product_name || '—'}
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground mb-2">No Requirements Found</h3>
-                    <p className="text-text-secondary max-w-md">
-                      There are no active client requirements to match. 
-                      Create new requirements in the Clients Management section.
-                    </p>
+                  <div className="text-xs text-text-secondary mt-1">
+                    API: {selectedRequirement.api_name || '—'}
                   </div>
-                  <Button
-                    variant="default"
-                    iconName="Plus"
-                    iconPosition="left"
-                    onClick={() => window.location.href = '/clients-management'}
-                  >
-                    Add Requirements
-                  </Button>
+                </div>
+                <div className="p-3 rounded-md bg-muted">
+                  <div className="font-medium text-foreground mb-1">Form & Strength</div>
+                  <div className="text-text-secondary">
+                    {selectedRequirement.dosage_form || '—'} {selectedRequirement.strength || ''}
+                  </div>
+                  <div className="text-xs text-text-secondary mt-1">
+                    Qty: {selectedRequirement.quantity || '—'} {selectedRequirement.unit || ''}
+                  </div>
+                </div>
+                <div className="p-3 rounded-md bg-muted">
+                  <div className="font-medium text-foreground mb-1">Commercial</div>
+                  <div className="text-text-secondary">
+                    Budget: {selectedRequirement.budget_usd ? `$${selectedRequirement.budget_usd.toLocaleString()}` : '—'}
+                  </div>
+                  <div className="text-xs text-text-secondary mt-1">
+                    Priority: {selectedRequirement.priority || '—'} · Status: {selectedRequirement.status || '—'}
+                  </div>
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* Resultados de Matching */}
+          <div className="bg-surface rounded-lg clinical-shadow p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground">
+                Matching Results
+              </h2>
+              <div className="flex items-center gap-3 text-sm text-text-secondary">
+                <span>
+                  {selectedRequirement
+                    ? `${matchResults.length} matches found`
+                    : 'Select a client and requirement to see matches'}
+                </span>
+              </div>
+            </div>
+
+            {!selectedRequirement ? (
+              <div className="text-sm text-text-secondary">
+                Select a client and requirement to start matching.
+              </div>
+            ) : matchResults.length === 0 ? (
+              <div className="text-sm text-text-secondary">
+                No matching suppliers found for this requirement. Try adjusting product data or requirements.
+              </div>
             ) : (
-              <div className="space-y-6">
-                {requirements?.map((requirement) => (
-                  <div key={requirement?.id} className="space-y-4">
-                    <RequirementCard
-                      requirement={requirement}
-                      onViewMatches={handleViewMatches}
-                      isExpanded={expandedRequirement === requirement?.id}
-                    />
-                    
-                    {expandedRequirement === requirement?.id && (
-                      <div className="ml-6 pl-6 border-l-2 border-primary">
-                        <MatchingResults
-                          requirement={selectedRequirement}
-                          matches={matches}
-                          isLoading={isMatchingLoading}
-                          onCreateDeal={handleCreateDeal}
-                          onLoadMore={() => {}}
-                          hasMore={false}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted">
+                      <th className="px-3 py-2 text-left font-medium text-foreground">Score</th>
+                      <th className="px-3 py-2 text-left font-medium text-foreground">Supplier</th>
+                      <th className="px-3 py-2 text-left font-medium text-foreground">API</th>
+                      <th className="px-3 py-2 text-left font-medium text-foreground">Form / Strength</th>
+                      <th className="px-3 py-2 text-left font-medium text-foreground">Pack</th>
+                      <th className="px-3 py-2 text-left font-medium text-foreground">Unit Price (USD)</th>
+                      <th className="px-3 py-2 text-left font-medium text-foreground">MOQ</th>
+                      <th className="px-3 py-2 text-left font-medium text-foreground">Lead Time (days)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matchResults.map(row => (
+                      <tr key={row.id} className="border-b border-border hover:bg-muted/60">
+                        <td className="px-3 py-2 align-top">
+                          <span
+                            className="inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-semibold"
+                            style={{
+                              backgroundColor:
+                                row.score >= 80
+                                  ? 'rgba(16, 185, 129, 0.12)' // verde
+                                  : row.score >= 50
+                                  ? 'rgba(234, 179, 8, 0.12)' // amarillo
+                                  : 'rgba(248, 113, 113, 0.12)', // rojo
+                              color:
+                                row.score >= 80
+                                  ? '#065f46'
+                                  : row.score >= 50
+                                  ? '#92400e'
+                                  : '#b91c1c'
+                            }}
+                          >
+                            {row.score}%
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          <div className="font-medium text-foreground">
+                            {row.supplier.name}
+                          </div>
+                          <div className="text-xs text-text-secondary">
+                            {row.supplier.country || '—'}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          <div className="text-text-secondary">
+                            {row.product.api_name || '—'}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          <div className="text-text-secondary">
+                            {row.product.dosage_form || '—'} {row.product.strength || ''}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          <div className="text-text-secondary">
+                            {row.product.pack_size || '—'}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          {row.product.unit_price_usd != null
+                            ? `$${Number(row.product.unit_price_usd).toFixed(4)}`
+                            : '—'}
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          {row.product.moq != null ? row.product.moq.toLocaleString() : '—'}
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          {row.product.lead_time_days != null
+                            ? row.product.lead_time_days
+                            : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
         </div>
       </main>
-      {/* Create Deal Modal */}
-      <CreateDealModal
-        isOpen={isCreateDealModalOpen}
-        onClose={() => {
-          setIsCreateDealModalOpen(false);
-          setSelectedMatch(null);
-        }}
-        match={selectedMatch}
-        requirement={selectedRequirement}
-        onCreateDeal={handleDealCreated}
-      />
+
+      <LoadingOverlay isLoading={isMatching} message="Computing matches..." />
     </div>
   );
 };
