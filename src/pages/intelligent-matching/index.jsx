@@ -20,8 +20,7 @@ const IntelligentMatching = () => {
   const [selectedRequirement, setSelectedRequirement] = useState(null);
 
   const [isLoading, setIsLoading] = useState(true);
-  const [isMatching, setIsMatching] = useState(false);
-
+  const [isMatching, setIsMatching] = useState(false); // ahora lo usamos para crear deals
   const [errorMessage, setErrorMessage] = useState('');
 
   // ---- 1. Cargar datos iniciales desde Supabase ----
@@ -258,7 +257,73 @@ const IntelligentMatching = () => {
     return rows;
   }, [products, suppliers, selectedRequirement, selectedClient]);
 
-  // ---- 4. UI ----
+  // ---- 4. Crear Deal en Supabase desde un match ----
+  const handleCreateDeal = async (row) => {
+    if (!selectedClient || !selectedRequirement || !row) return;
+
+    setIsMatching(true);
+    try {
+      const quantity = Number(selectedRequirement.quantity) || null;
+      const unitPrice = row.product.unit_price_usd != null
+        ? Number(row.product.unit_price_usd)
+        : null;
+
+      const dealValue =
+        quantity && unitPrice
+          ? quantity * unitPrice
+          : null;
+
+      const payload = {
+        client_id: selectedClient.id,
+        requirement_id: selectedRequirement.id,
+        supplier_id: row.supplier.id,
+        product_id: row.product.id,
+
+        client_name: selectedClient.name,
+        supplier_name: row.supplier.name,
+        product_name: selectedRequirement.product_name || row.product.api_name || '',
+        dosage_form: row.product.dosage_form || selectedRequirement.dosage_form || '',
+        strength: row.product.strength || selectedRequirement.strength || '',
+        pack_size: row.product.pack_size || '',
+
+        stage: 'Lead',
+        priority: selectedRequirement.priority || 'Medium',
+
+        deal_value: dealValue,
+        currency: 'USD',
+        commission_rate: 0.05, // puedes ajustar después o exponerlo en un formulario
+        expected_close_date: null,
+
+        next_action: 'Follow up with supplier and client',
+        notes: `Created from Intelligent Matching. Score: ${row.score}%.`
+      };
+
+      const { data, error } = await supabase
+        .from('deals')
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error inserting deal in Supabase:', error);
+        alert('Error creating deal. Check console for details.');
+        return;
+      }
+
+      console.log('Deal created:', data);
+      alert('Deal created successfully! You can review it in Deals Management.');
+
+      // Si quieres redirigir automáticamente:
+      // navigate('/deals-management');
+    } catch (error) {
+      console.error('Unexpected error creating deal:', error);
+      alert('Unexpected error creating deal. Check console for details.');
+    } finally {
+      setIsMatching(false);
+    }
+  };
+
+  // ---- 5. UI ----
 
   if (isLoading) {
     return (
@@ -422,6 +487,7 @@ const IntelligentMatching = () => {
                       <th className="px-3 py-2 text-left font-medium text-foreground">Unit Price (USD)</th>
                       <th className="px-3 py-2 text-left font-medium text-foreground">MOQ</th>
                       <th className="px-3 py-2 text-left font-medium text-foreground">Lead Time (days)</th>
+                      <th className="px-3 py-2 text-left font-medium text-foreground">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -484,6 +550,16 @@ const IntelligentMatching = () => {
                             ? row.product.lead_time_days
                             : '—'}
                         </td>
+                        <td className="px-3 py-2 align-top">
+                          <Button
+                            size="sm"
+                            iconName="Plus"
+                            iconPosition="left"
+                            onClick={() => handleCreateDeal(row)}
+                          >
+                            Create Deal
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -494,7 +570,7 @@ const IntelligentMatching = () => {
         </div>
       </main>
 
-      <LoadingOverlay isLoading={isMatching} message="Computing matches..." />
+      <LoadingOverlay isLoading={isMatching} message="Creating deal..." />
     </div>
   );
 };
