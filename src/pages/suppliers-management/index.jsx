@@ -180,7 +180,7 @@ const SuppliersManagement = () => {
     }
   ];
 
-  // ---------- Inicializar datos desde Supabase (con fallback a mocks) ----------
+  // ---------- Inicializar SUPPLIERS desde Supabase (con fallback a mocks) ----------
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
@@ -202,13 +202,11 @@ const SuppliersManagement = () => {
                 contact_person: s.contact_name,
                 email: s.contact_email,
                 phone: s.contact_phone,
-                // usamos country como "location" en la UI por ahora
                 location: s.country || '',
                 status: s.status || 'active',
-                website: '', // no está en BD aún, se queda solo en frontend
+                website: '', // aún no está en BD
                 notes: s.notes,
-                // por ahora no tenemos tabla de productos real, dejamos 0
-                product_count: 0,
+                product_count: 0, // luego podemos calcular desde supplier_products
                 created_at: s.created_at
               }))
             : mockSuppliers;
@@ -225,23 +223,67 @@ const SuppliersManagement = () => {
     loadData();
   }, []);
 
-  // ---------- Cargar productos (mock) cuando cambia el supplier ----------
+  // ---------- Cargar PRODUCTS desde Supabase al seleccionar supplier ----------
   useEffect(() => {
-    if (selectedSupplierId) {
-      const loadProducts = async () => {
-        setIsProductsLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const supplierProducts = mockProducts?.filter(
-          p => p?.supplier_id === selectedSupplierId
+    if (!selectedSupplierId) {
+      setProducts([]);
+      return;
+    }
+
+    const loadProducts = async () => {
+      setIsProductsLoading(true);
+      try {
+        // Si el supplier es de mock (id "sup-xxx"), usar solo mock
+        if (selectedSupplierId.startsWith('sup-')) {
+          const supplierProducts = mockProducts.filter(
+            p => p.supplier_id === selectedSupplierId
+          );
+          setProducts(supplierProducts);
+        } else {
+          const { data, error } = await supabase
+            .from('supplier_products')
+            .select('*')
+            .eq('supplier_id', selectedSupplierId)
+            .order('created_at', { ascending: false });
+
+          if (error) {
+            throw error;
+          }
+
+          const mapped =
+            data && data.length > 0
+              ? data.map(p => ({
+                  id: p.id,
+                  supplier_id: p.supplier_id,
+                  api_name: p.api_name,
+                  dosage_form: p.dosage_form,
+                  strength: p.strength,
+                  pack_size: p.pack_size,
+                  unit_price_usd: p.unit_price_usd,
+                  moq: p.moq,
+                  lead_time_days: p.lead_time_days,
+                  description: p.description,
+                  created_at: p.created_at
+                }))
+              : mockProducts.filter(p => p.supplier_id === selectedSupplierId);
+
+          setProducts(mapped);
+        }
+      } catch (error) {
+        console.error(
+          'Error loading products from Supabase, using mock products:',
+          error
+        );
+        const supplierProducts = mockProducts.filter(
+          p => p.supplier_id === selectedSupplierId
         );
         setProducts(supplierProducts);
+      } finally {
         setIsProductsLoading(false);
-      };
+      }
+    };
 
-      loadProducts();
-    } else {
-      setProducts([]);
-    }
+    loadProducts();
   }, [selectedSupplierId]);
 
   // ---------- Filtros ----------
@@ -265,7 +307,7 @@ const SuppliersManagement = () => {
     setSelectedSupplier(supplier);
   };
 
-  // ---------- CRUD Suppliers (con Supabase + local state) ----------
+  // ---------- CRUD Suppliers (Supabase + estado local) ----------
   const handleEditSupplier = supplier => {
     setEditingSupplier(supplier);
     setIsSupplierModalOpen(true);
@@ -275,14 +317,14 @@ const SuppliersManagement = () => {
     setIsLoading(true);
     try {
       if (editingSupplier) {
-        // UPDATE en Supabase solo si no es mock (UUID vs “sup-xxx”)
+        // UPDATE en Supabase solo si no es mock
         if (!editingSupplier.id.startsWith('sup-')) {
           const { error } = await supabase
             .from('suppliers')
             .update({
               name: supplierData.company_name,
               country: supplierData.location,
-              segment: null, // podríamos usar supplierData.segment / industry más adelante
+              segment: null,
               contact_name: supplierData.contact_person,
               contact_email: supplierData.email,
               contact_phone: supplierData.phone,
@@ -301,7 +343,6 @@ const SuppliersManagement = () => {
           }
         }
 
-        // Actualizar estado local
         setSuppliers(prev =>
           prev?.map(s =>
             s?.id === editingSupplier?.id
@@ -383,7 +424,6 @@ const SuppliersManagement = () => {
 
     setIsLoading(true);
     try {
-      // Solo borrar en Supabase si no es un supplier mock
       if (!supplierId.startsWith('sup-')) {
         const { error } = await supabase
           .from('suppliers')
@@ -400,7 +440,6 @@ const SuppliersManagement = () => {
         }
       }
 
-      // Actualizar estado local
       setSuppliers(prev => prev?.filter(s => s?.id !== supplierId));
       if (selectedSupplierId === supplierId) {
         setSelectedSupplierId(null);
@@ -415,8 +454,8 @@ const SuppliersManagement = () => {
     }
   };
 
-  // ---------- CRUD Products (solo frontend / mock por ahora) ----------
-  const handleEditProduct = (product /*, supplierId*/) => {
+  // ---------- CRUD Products (con Supabase + mock fallback) ----------
+  const handleEditProduct = product => {
     setEditingProduct(product);
     setIsProductModalOpen(true);
   };
@@ -424,31 +463,119 @@ const SuppliersManagement = () => {
   const handleSaveProduct = async productData => {
     setIsProductsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const targetSupplierId = productData.supplier_id || selectedSupplierId;
 
       if (editingProduct) {
-        const updatedProducts = products?.map(p =>
-          p?.id === editingProduct?.id
-            ? { ...p, ...productData, updated_at: new Date()?.toISOString() }
-            : p
-        );
-        setProducts(updatedProducts);
-      } else {
-        const newProduct = {
-          id: `prod-${Date.now()}`,
-          ...productData,
-          created_at: new Date()?.toISOString()
-        };
-        setProducts(prev => [newProduct, ...prev]);
+        // UPDATE en Supabase si el producto no es mock
+        if (!editingProduct.id.startsWith('prod-')) {
+          const { error } = await supabase
+            .from('supplier_products')
+            .update({
+              supplier_id: targetSupplierId,
+              api_name: productData.api_name,
+              dosage_form: productData.dosage_form,
+              strength: productData.strength,
+              pack_size: productData.pack_size,
+              unit_price_usd: productData.unit_price_usd,
+              moq: productData.moq,
+              lead_time_days: productData.lead_time_days,
+              description: productData.description
+            })
+            .eq('id', editingProduct.id);
 
-        // Update supplier product count
-        setSuppliers(prev =>
-          prev?.map(s =>
-            s?.id === productData?.supplier_id
-              ? { ...s, product_count: (s?.product_count || 0) + 1 }
-              : s
+          if (error) {
+            console.error('Error updating product in Supabase:', error);
+            alert(
+              `No se pudo actualizar el producto en Supabase: ${
+                error.message || 'Unknown error'
+              }`
+            );
+          }
+        }
+
+        setProducts(prev =>
+          prev?.map(p =>
+            p?.id === editingProduct?.id
+              ? {
+                  ...p,
+                  ...productData,
+                  supplier_id: targetSupplierId,
+                  updated_at: new Date().toISOString()
+                }
+              : p
           )
         );
+      } else {
+        // INSERT nuevo producto
+        let newProduct;
+
+        if (!targetSupplierId || targetSupplierId.startsWith('sup-')) {
+          // Supplier mock → solo frontend
+          newProduct = {
+            id: `prod-${Date.now()}`,
+            ...productData,
+            supplier_id: targetSupplierId,
+            created_at: new Date().toISOString()
+          };
+        } else {
+          const { data, error } = await supabase
+            .from('supplier_products')
+            .insert({
+              supplier_id: targetSupplierId,
+              api_name: productData.api_name,
+              dosage_form: productData.dosage_form,
+              strength: productData.strength,
+              pack_size: productData.pack_size,
+              unit_price_usd: productData.unit_price_usd,
+              moq: productData.moq,
+              lead_time_days: productData.lead_time_days,
+              description: productData.description
+            })
+            .select()
+            .single();
+
+          if (error) {
+            console.error('Error inserting product in Supabase:', error);
+            alert(
+              `No se pudo crear el producto en Supabase: ${
+                error.message || 'Unknown error'
+              }`
+            );
+            // fallback a solo frontend
+            newProduct = {
+              id: `prod-${Date.now()}`,
+              ...productData,
+              supplier_id: targetSupplierId,
+              created_at: new Date().toISOString()
+            };
+          } else {
+            newProduct = {
+              id: data.id,
+              supplier_id: data.supplier_id,
+              api_name: data.api_name,
+              dosage_form: data.dosage_form,
+              strength: data.strength,
+              pack_size: data.pack_size,
+              unit_price_usd: data.unit_price_usd,
+              moq: data.moq,
+              lead_time_days: data.lead_time_days,
+              description: data.description,
+              created_at: data.created_at
+            };
+          }
+        }
+
+        setProducts(prev => [newProduct, ...prev]);
+
+        if (targetSupplierId) {
+          setSuppliers(prev =>
+            prev?.map(s =>
+              s?.id === targetSupplierId
+                ? { ...s, product_count: (s?.product_count || 0) + 1 }
+                : s
+            )
+          );
+        }
       }
 
       setIsProductModalOpen(false);
@@ -467,7 +594,21 @@ const SuppliersManagement = () => {
 
     setIsProductsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      if (!productId.startsWith('prod-')) {
+        const { error } = await supabase
+          .from('supplier_products')
+          .delete()
+          .eq('id', productId);
+
+        if (error) {
+          console.error('Error deleting product in Supabase:', error);
+          alert(
+            `No se pudo eliminar el producto en Supabase: ${
+              error.message || 'Unknown error'
+            }`
+          );
+        }
+      }
 
       setProducts(prev => prev?.filter(p => p?.id !== productId));
 
@@ -500,7 +641,6 @@ const SuppliersManagement = () => {
 
       switch (actionData?.type) {
         case 'update_status':
-          // Actualizar en Supabase para suppliers reales
           if (realIds.length > 0) {
             const { error } = await supabase
               .from('suppliers')
@@ -515,7 +655,6 @@ const SuppliersManagement = () => {
             }
           }
 
-          // Actualizar estado local
           setSuppliers(prev =>
             prev?.map(s =>
               actionData?.supplierIds?.includes(s?.id)
@@ -552,7 +691,6 @@ const SuppliersManagement = () => {
           break;
 
         case 'export':
-          // Aquí en una app real generarías un CSV/Excel
           console.log('Exporting suppliers:', actionData?.supplierIds);
           break;
 
