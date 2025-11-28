@@ -19,7 +19,7 @@ const ClientsManagement = () => {
   const [isRequirementModalOpen, setIsRequirementModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [editingRequirement, setEditingRequirement] = useState(null);
-  const [userRole] = useState('editor'); // Mock user role - in real app, get from auth context
+  const [userRole] = useState('editor'); // En el futuro vendrá del contexto de auth
 
   // ---------- MOCK DATA (fallback si Supabase está vacío o falla) ----------
   const mockClients = [
@@ -40,7 +40,7 @@ const ClientsManagement = () => {
       status: 'active',
       notes:
         'Key client for cardiovascular medications. Prefers bulk orders with quarterly delivery schedules.',
-      created_at: '2024-01-15T08:30:00Z',
+      created_at: '2024-01-15T08:30:00Z'
     },
     {
       id: 'client-002',
@@ -59,7 +59,7 @@ const ClientsManagement = () => {
       status: 'active',
       notes:
         'Large distributor with extensive network. Requires FDA-approved suppliers only.',
-      created_at: '2024-02-20T10:15:00Z',
+      created_at: '2024-02-20T10:15:00Z'
     },
     {
       id: 'client-003',
@@ -78,7 +78,7 @@ const ClientsManagement = () => {
       status: 'pending',
       notes:
         'Specialized in oncology research. Requires high-purity compounds for clinical trials.',
-      created_at: '2024-03-10T14:45:00Z',
+      created_at: '2024-03-10T14:45:00Z'
     },
     {
       id: 'client-004',
@@ -97,7 +97,7 @@ const ClientsManagement = () => {
       status: 'active',
       notes:
         'Multi-hospital network serving 500,000+ patients. Focus on generic medications and cost optimization.',
-      created_at: '2024-01-28T11:20:00Z',
+      created_at: '2024-01-28T11:20:00Z'
     },
     {
       id: 'client-005',
@@ -116,8 +116,8 @@ const ClientsManagement = () => {
       status: 'inactive',
       notes:
         'Focuses on rare disease treatments. Currently restructuring procurement processes.',
-      created_at: '2024-02-05T09:30:00Z',
-    },
+      created_at: '2024-02-05T09:30:00Z'
+    }
   ];
 
   const mockRequirements = [
@@ -134,9 +134,8 @@ const ClientsManagement = () => {
       deadline: '2024-12-15T00:00:00Z',
       priority: 'high',
       status: 'open',
-      notes:
-        'USP grade required. Prefer blister packaging for retail distribution.',
-      created_at: '2024-09-15T10:30:00Z',
+      notes: 'USP grade required. Prefer blister packaging for retail distribution.',
+      created_at: '2024-09-15T10:30:00Z'
     },
     {
       id: 'req-002',
@@ -153,7 +152,7 @@ const ClientsManagement = () => {
       status: 'in_progress',
       notes:
         'Extended release formulation. Stability data required for 24-month shelf life.',
-      created_at: '2024-09-10T14:20:00Z',
+      created_at: '2024-09-10T14:20:00Z'
     },
     {
       id: 'req-003',
@@ -168,9 +167,8 @@ const ClientsManagement = () => {
       deadline: '2024-10-31T00:00:00Z',
       priority: 'high',
       status: 'open',
-      notes:
-        'FDA-approved facility required. Need CoA and stability studies.',
-      created_at: '2024-09-18T09:15:00Z',
+      notes: 'FDA-approved facility required. Need CoA and stability studies.',
+      created_at: '2024-09-18T09:15:00Z'
     },
     {
       id: 'req-004',
@@ -187,7 +185,7 @@ const ClientsManagement = () => {
       status: 'open',
       notes:
         'GMP facility required. Cold chain storage and transport needed. For clinical trial use.',
-      created_at: '2024-09-20T16:45:00Z',
+      created_at: '2024-09-20T16:45:00Z'
     },
     {
       id: 'req-005',
@@ -204,8 +202,8 @@ const ClientsManagement = () => {
       status: 'open',
       notes:
         'Generic formulation acceptable. Bulk packaging preferred for hospital use.',
-      created_at: '2024-09-12T13:30:00Z',
-    },
+      created_at: '2024-09-12T13:30:00Z'
+    }
   ];
 
   // ---------- Cargar datos desde Supabase (con fallback a mocks) ----------
@@ -213,13 +211,13 @@ const ClientsManagement = () => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        // 1) Cargar clients desde Supabase
+        // 1) Clients
         const { data: clientsData, error: clientsError } = await supabase
           .from('clients')
           .select('*')
           .order('created_at', { ascending: false });
 
-        // 2) Cargar requirements desde Supabase
+        // 2) Requirements
         const { data: reqsData, error: reqsError } = await supabase
           .from('client_requirements')
           .select('*')
@@ -228,32 +226,31 @@ const ClientsManagement = () => {
         if (clientsError) throw clientsError;
         if (reqsError) throw reqsError;
 
-        // Mapear formato de BD → formato que usan los componentes actuales
         const mappedClients =
           clientsData && clientsData.length > 0
-            ? clientsData.map((c) => ({
+            ? clientsData.map(c => ({
                 id: c.id,
                 company_name: c.name,
                 contact_person: c.contact_name,
-                position: '', // no existe en la tabla todavía
+                position: c.position || '',
                 email: c.contact_email,
                 phone: c.contact_phone,
-                address: '',
-                city: '',
-                state: '',
+                address: c.address || '',
+                city: c.city || '',
+                state: c.state || '',
                 country: c.country,
-                postal_code: '',
+                postal_code: c.postal_code || '',
                 industry: c.segment,
-                company_size: '',
+                company_size: c.company_size || '',
                 status: c.status || 'active',
                 notes: c.notes,
-                created_at: c.created_at,
+                created_at: c.created_at
               }))
             : mockClients;
 
         const mappedRequirements =
           reqsData && reqsData.length > 0
-            ? reqsData.map((r) => ({
+            ? reqsData.map(r => ({
                 id: r.id,
                 client_id: r.client_id,
                 product_name: r.product_name,
@@ -267,18 +264,14 @@ const ClientsManagement = () => {
                 priority: r.priority,
                 status: r.status || 'open',
                 notes: r.notes,
-                created_at: r.created_at,
+                created_at: r.created_at
               }))
             : mockRequirements;
 
         setClients(mappedClients);
         setRequirements(mappedRequirements);
       } catch (error) {
-        console.error(
-          'Error loading data from Supabase, using mock data:',
-          error
-        );
-        // Fallback: usar mock data si falla Supabase
+        console.error('Error loading data from Supabase, using mock data:', error);
         setClients(mockClients);
         setRequirements(mockRequirements);
       } finally {
@@ -290,52 +283,51 @@ const ClientsManagement = () => {
   }, []);
 
   // ---------- Handlers de selección / navegación ----------
-  const handleSelectClient = (client) => {
+  const handleSelectClient = client => {
     setSelectedClient(client);
   };
 
-  const handleEditClient = (client) => {
+  const handleEditClient = client => {
     setEditingClient(client);
     setIsClientModalOpen(true);
   };
 
-  // ---------- CRUD de CLIENTES conectado a Supabase ----------
-  const handleDeleteClient = async (clientId) => {
+  // ---------- CRUD CLIENTES ----------
+  const handleDeleteClient = async clientId => {
     if (
-      window.confirm(
+      !window.confirm(
         'Are you sure you want to delete this client? This action cannot be undone.'
       )
     ) {
-      try {
-        const { error } = await supabase
-          .from('clients')
-          .delete()
-          .eq('id', clientId);
+      return;
+    }
 
-        if (error) {
-          console.error('Error deleting client in Supabase:', error);
-          alert(
-            'No se pudo eliminar el cliente en Supabase: ' + error.message
-          );
-        }
+    try {
+      const { error } = await supabase.from('clients').delete().eq('id', clientId);
 
-        // Actualizar estado local siempre para reflejar UI
-        setClients((prev) => prev?.filter((c) => c?.id !== clientId));
-
-        if (selectedClient?.id === clientId) {
-          setSelectedClient(null);
-        }
-      } catch (error) {
-        console.error('Error deleting client:', error);
-        alert('Error inesperado al eliminar el cliente');
+      if (error) {
+        console.error('Error deleting client in Supabase:', error);
+        alert(
+          `No se pudo eliminar el cliente en Supabase: ${
+            error.message || 'Unknown error'
+          }`
+        );
       }
+
+      setClients(prev => prev?.filter(c => c?.id !== clientId));
+
+      if (selectedClient?.id === clientId) {
+        setSelectedClient(null);
+      }
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      alert('Ocurrió un error eliminando el cliente.');
     }
   };
 
-  const handleSaveClient = async (clientData) => {
+  const handleSaveClient = async clientData => {
     try {
       if (editingClient) {
-        // UPDATE en Supabase
         const { error } = await supabase
           .from('clients')
           .update({
@@ -347,31 +339,33 @@ const ClientsManagement = () => {
             contact_phone: clientData.phone,
             status: clientData.status,
             notes: clientData.notes,
+            position: clientData.position || null,
+            address: clientData.address || null,
+            city: clientData.city || null,
+            state: clientData.state || null,
+            postal_code: clientData.postal_code || null,
+            company_size: clientData.company_size || null
           })
           .eq('id', editingClient.id);
 
         if (error) {
           console.error('Error updating client in Supabase:', error);
           alert(
-            'No se pudo actualizar el cliente en Supabase: ' + error.message
+            `No se pudo actualizar el cliente en Supabase: ${
+              error.message || 'Unknown error'
+            }`
           );
           throw error;
         }
 
-        // Actualizar estado local
-        setClients((prev) =>
-          prev?.map((c) =>
-            c?.id === editingClient?.id ? { ...c, ...clientData } : c
-          )
+        setClients(prev =>
+          prev?.map(c => (c?.id === editingClient?.id ? { ...c, ...clientData } : c))
         );
 
         if (selectedClient?.id === editingClient?.id) {
-          setSelectedClient((prev) =>
-            prev ? { ...prev, ...clientData } : prev
-          );
+          setSelectedClient(prev => (prev ? { ...prev, ...clientData } : prev));
         }
       } else {
-        // INSERT en Supabase
         const { data, error } = await supabase
           .from('clients')
           .insert({
@@ -383,16 +377,22 @@ const ClientsManagement = () => {
             contact_phone: clientData.phone,
             status: clientData.status,
             notes: clientData.notes,
+            position: clientData.position || null,
+            address: clientData.address || null,
+            city: clientData.city || null,
+            state: clientData.state || null,
+            postal_code: clientData.postal_code || null,
+            company_size: clientData.company_size || null
           })
           .select()
           .single();
 
-        console.log('Supabase insert result (clients):', { data, error });
-
         if (error) {
           console.error('Error inserting client in Supabase:', error);
           alert(
-            'No se pudo crear el cliente en Supabase: ' + error.message
+            `No se pudo crear el cliente en Supabase: ${
+              error.message || 'Unknown error'
+            }`
           );
           throw error;
         }
@@ -413,13 +413,12 @@ const ClientsManagement = () => {
           company_size: clientData.company_size || '',
           status: data.status || 'active',
           notes: data.notes,
-          created_at: data.created_at,
+          created_at: data.created_at
         };
 
-        setClients((prev) => [newClient, ...prev]);
+        setClients(prev => [newClient, ...prev]);
       }
 
-      // Cerrar modal desde el padre cuando todo sale bien
       setIsClientModalOpen(false);
       setEditingClient(null);
     } catch (error) {
@@ -428,49 +427,137 @@ const ClientsManagement = () => {
     }
   };
 
-  // ---------- CRUD de REQUIREMENTS (por ahora solo en frontend) ----------
-  const handleEditRequirement = (requirement) => {
+  // ---------- CRUD REQUIREMENTS (con Supabase) ----------
+  const handleEditRequirement = requirement => {
     setEditingRequirement(requirement);
     setIsRequirementModalOpen(true);
   };
 
-  const handleDeleteRequirement = async (requirementId) => {
-    if (
-      window.confirm('Are you sure you want to delete this requirement?')
-    ) {
-      try {
-        // TODO: conectar a Supabase (tabla client_requirements)
-        setRequirements((prev) =>
-          prev?.filter((r) => r?.id !== requirementId)
+  const handleDeleteRequirement = async requirementId => {
+    if (!window.confirm('Are you sure you want to delete this requirement?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('client_requirements')
+        .delete()
+        .eq('id', requirementId);
+
+      if (error) {
+        console.error('Error deleting requirement in Supabase:', error);
+        alert(
+          `No se pudo eliminar el requerimiento en Supabase: ${
+            error.message || 'Unknown error'
+          }`
         );
-      } catch (error) {
-        console.error('Error deleting requirement:', error);
       }
+
+      setRequirements(prev => prev?.filter(r => r?.id !== requirementId));
+    } catch (error) {
+      console.error('Error deleting requirement:', error);
+      alert('Ocurrió un error eliminando el requerimiento.');
     }
   };
 
-  const handleSaveRequirement = async (requirementData) => {
+  const handleSaveRequirement = async requirementData => {
     try {
-      // TODO: conectar a Supabase (tabla client_requirements)
+      const clientId = requirementData.client_id || selectedClient?.id || null;
+
+      if (!clientId) {
+        alert('No hay cliente asociado al requerimiento.');
+        return;
+      }
+
       if (editingRequirement) {
-        setRequirements((prev) =>
-          prev?.map((r) =>
+        const { error } = await supabase
+          .from('client_requirements')
+          .update({
+            client_id: clientId,
+            product_name: requirementData.product_name,
+            api_name: requirementData.api_name || null,
+            dosage_form: requirementData.dosage_form,
+            strength: requirementData.strength,
+            annual_volume: requirementData.quantity || null,
+            unit: requirementData.unit || null,
+            budget_usd: requirementData.budget_usd || null,
+            deadline: requirementData.deadline || null,
+            priority: requirementData.priority,
+            status: requirementData.status,
+            notes: requirementData.notes || null
+          })
+          .eq('id', editingRequirement.id);
+
+        if (error) {
+          console.error('Error updating requirement in Supabase:', error);
+          alert(
+            `No se pudo actualizar el requerimiento en Supabase: ${
+              error.message || 'Unknown error'
+            }`
+          );
+          throw error;
+        }
+
+        setRequirements(prev =>
+          prev?.map(r =>
             r?.id === editingRequirement?.id
               ? {
                   ...r,
                   ...requirementData,
-                  updated_at: new Date()?.toISOString(),
+                  client_id: clientId,
+                  updated_at: new Date().toISOString()
                 }
               : r
           )
         );
       } else {
+        const { data, error } = await supabase
+          .from('client_requirements')
+          .insert({
+            client_id: clientId,
+            product_name: requirementData.product_name,
+            api_name: requirementData.api_name || null,
+            dosage_form: requirementData.dosage_form,
+            strength: requirementData.strength,
+            annual_volume: requirementData.quantity || null,
+            unit: requirementData.unit || null,
+            budget_usd: requirementData.budget_usd || null,
+            deadline: requirementData.deadline || null,
+            priority: requirementData.priority,
+            status: requirementData.status,
+            notes: requirementData.notes || null
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error inserting requirement in Supabase:', error);
+          alert(
+            `No se pudo crear el requerimiento en Supabase: ${
+              error.message || 'Unknown error'
+            }`
+          );
+          throw error;
+        }
+
         const newRequirement = {
-          id: `req-${Date.now()}`,
-          ...requirementData,
-          created_at: new Date()?.toISOString(),
+          id: data.id,
+          client_id: data.client_id,
+          product_name: data.product_name,
+          api_name: data.api_name || '',
+          dosage_form: data.dosage_form,
+          strength: data.strength,
+          quantity: data.annual_volume || null,
+          unit: data.unit || '',
+          budget_usd: data.budget_usd || null,
+          deadline: data.deadline || null,
+          priority: data.priority,
+          status: data.status || 'open',
+          notes: data.notes || '',
+          created_at: data.created_at
         };
-        setRequirements((prev) => [newRequirement, ...prev]);
+
+        setRequirements(prev => [newRequirement, ...prev]);
       }
 
       setIsRequirementModalOpen(false);
@@ -482,20 +569,18 @@ const ClientsManagement = () => {
   };
 
   // ---------- Navegación a Intelligent Matching ----------
-  const handleNavigateToMatching = (requirement) => {
+  const handleNavigateToMatching = requirement => {
     navigate('/intelligent-matching', {
       state: {
         requirement,
-        client: selectedClient,
-      },
+        client: selectedClient
+      }
     });
   };
 
   const getClientRequirements = () => {
     if (!selectedClient) return [];
-    return requirements?.filter(
-      (req) => req?.client_id === selectedClient?.id
-    );
+    return requirements?.filter(req => req?.client_id === selectedClient?.id);
   };
 
   return (
@@ -512,8 +597,8 @@ const ClientsManagement = () => {
               Clients Management
             </h1>
             <p className="text-text-secondary">
-              Manage client relationships and track procurement requirements
-              for pharmaceutical supply chain operations.
+              Manage client relationships and track procurement requirements for
+              pharmaceutical supply chain operations.
             </p>
           </div>
 
