@@ -24,178 +24,188 @@ const ClientsManagement = () => {
   // ---------- MOCK DATA (fallback si Supabase está vacío o falla) ----------
   const mockClients = [
     {
-      id: "client-001",
-      company_name: "MedTech Solutions Inc.",
-      contact_person: "Sarah Johnson",
-      position: "Procurement Manager",
-      email: "sarah.johnson@medtechsolutions.com",
-      phone: "+1-555-0123",
-      address: "123 Healthcare Blvd",
-      city: "Boston",
-      state: "MA",
-      country: "United States",
-      postal_code: "02101",
-      industry: "pharmaceuticals",
-      company_size: "medium",
-      status: "active",
-      notes: "Key client for cardiovascular medications. Prefers bulk orders with quarterly delivery schedules.",
-      created_at: "2024-01-15T08:30:00Z"
+      id: 'client-001',
+      company_name: 'MedTech Solutions Inc.',
+      contact_person: 'Sarah Johnson',
+      position: 'Procurement Manager',
+      email: 'sarah.johnson@medtechsolutions.com',
+      phone: '+1-555-0123',
+      address: '123 Healthcare Blvd',
+      city: 'Boston',
+      state: 'MA',
+      country: 'United States',
+      postal_code: '02101',
+      industry: 'pharmaceuticals',
+      company_size: 'medium',
+      status: 'active',
+      notes:
+        'Key client for cardiovascular medications. Prefers bulk orders with quarterly delivery schedules.',
+      created_at: '2024-01-15T08:30:00Z',
     },
     {
-      id: "client-002",
-      company_name: "Global Pharma Distribution",
-      contact_person: "Michael Chen",
-      position: "Supply Chain Director",
-      email: "m.chen@globalpharma.com",
-      phone: "+1-555-0456",
-      address: "456 Medical Center Dr",
-      city: "San Francisco",
-      state: "CA",
-      country: "United States",
-      postal_code: "94102",
-      industry: "distribution",
-      company_size: "large",
-      status: "active",
-      notes: "Large distributor with extensive network. Requires FDA-approved suppliers only.",
-      created_at: "2024-02-20T10:15:00Z"
+      id: 'client-002',
+      company_name: 'Global Pharma Distribution',
+      contact_person: 'Michael Chen',
+      position: 'Supply Chain Director',
+      email: 'm.chen@globalpharma.com',
+      phone: '+1-555-0456',
+      address: '456 Medical Center Dr',
+      city: 'San Francisco',
+      state: 'CA',
+      country: 'United States',
+      postal_code: '94102',
+      industry: 'distribution',
+      company_size: 'large',
+      status: 'active',
+      notes:
+        'Large distributor with extensive network. Requires FDA-approved suppliers only.',
+      created_at: '2024-02-20T10:15:00Z',
     },
     {
-      id: "client-003",
-      company_name: "BioResearch Labs",
-      contact_person: "Dr. Emily Rodriguez",
-      position: "Research Director",
-      email: "e.rodriguez@bioresearch.com",
-      phone: "+1-555-0789",
-      address: "789 Innovation Way",
-      city: "Seattle",
-      state: "WA",
-      country: "United States",
-      postal_code: "98101",
-      industry: "research",
-      company_size: "small",
-      status: "pending",
-      notes: "Specialized in oncology research. Requires high-purity compounds for clinical trials.",
-      created_at: "2024-03-10T14:45:00Z"
+      id: 'client-003',
+      company_name: 'BioResearch Labs',
+      contact_person: 'Dr. Emily Rodriguez',
+      position: 'Research Director',
+      email: 'e.rodriguez@bioresearch.com',
+      phone: '+1-555-0789',
+      address: '789 Innovation Way',
+      city: 'Seattle',
+      state: 'WA',
+      country: 'United States',
+      postal_code: '98101',
+      industry: 'research',
+      company_size: 'small',
+      status: 'pending',
+      notes:
+        'Specialized in oncology research. Requires high-purity compounds for clinical trials.',
+      created_at: '2024-03-10T14:45:00Z',
     },
     {
-      id: "client-004",
-      company_name: "Regional Health Network",
-      contact_person: "James Wilson",
-      position: "Pharmacy Director",
-      email: "j.wilson@regionalhealthnet.com",
-      phone: "+1-555-0321",
-      address: "321 Hospital Ave",
-      city: "Chicago",
-      state: "IL",
-      country: "United States",
-      postal_code: "60601",
-      industry: "healthcare",
-      company_size: "enterprise",
-      status: "active",
-      notes: "Multi-hospital network serving 500,000+ patients. Focus on generic medications and cost optimization.",
-      created_at: "2024-01-28T11:20:00Z"
+      id: 'client-004',
+      company_name: 'Regional Health Network',
+      contact_person: 'James Wilson',
+      position: 'Pharmacy Director',
+      email: 'j.wilson@regionalhealthnet.com',
+      phone: '+1-555-0321',
+      address: '321 Hospital Ave',
+      city: 'Chicago',
+      state: 'IL',
+      country: 'United States',
+      postal_code: '60601',
+      industry: 'healthcare',
+      company_size: 'enterprise',
+      status: 'active',
+      notes:
+        'Multi-hospital network serving 500,000+ patients. Focus on generic medications and cost optimization.',
+      created_at: '2024-01-28T11:20:00Z',
     },
     {
-      id: "client-005",
-      company_name: "Specialty Therapeutics Corp",
-      contact_person: "Lisa Thompson",
-      position: "VP of Operations",
-      email: "l.thompson@specialtytherapeutics.com",
-      phone: "+1-555-0654",
-      address: "654 Biotech Plaza",
-      city: "Austin",
-      state: "TX",
-      country: "United States",
-      postal_code: "73301",
-      industry: "biotechnology",
-      company_size: "medium",
-      status: "inactive",
-      notes: "Focuses on rare disease treatments. Currently restructuring procurement processes.",
-      created_at: "2024-02-05T09:30:00Z"
-    }
+      id: 'client-005',
+      company_name: 'Specialty Therapeutics Corp',
+      contact_person: 'Lisa Thompson',
+      position: 'VP of Operations',
+      email: 'l.thompson@specialtytherapeutics.com',
+      phone: '+1-555-0654',
+      address: '654 Biotech Plaza',
+      city: 'Austin',
+      state: 'TX',
+      country: 'United States',
+      postal_code: '73301',
+      industry: 'biotechnology',
+      company_size: 'medium',
+      status: 'inactive',
+      notes:
+        'Focuses on rare disease treatments. Currently restructuring procurement processes.',
+      created_at: '2024-02-05T09:30:00Z',
+    },
   ];
 
   const mockRequirements = [
     {
-      id: "req-001",
-      client_id: "client-001",
-      product_name: "Atorvastatin Tablets",
-      api_name: "Atorvastatin Calcium",
-      dosage_form: "tablet",
-      strength: "20mg",
+      id: 'req-001',
+      client_id: 'client-001',
+      product_name: 'Atorvastatin Tablets',
+      api_name: 'Atorvastatin Calcium',
+      dosage_form: 'tablet',
+      strength: '20mg',
       quantity: 100000,
-      unit: "pieces",
+      unit: 'pieces',
       budget_usd: 15000,
-      deadline: "2024-12-15T00:00:00Z",
-      priority: "high",
-      status: "open",
-      notes: "USP grade required. Prefer blister packaging for retail distribution.",
-      created_at: "2024-09-15T10:30:00Z"
+      deadline: '2024-12-15T00:00:00Z',
+      priority: 'high',
+      status: 'open',
+      notes:
+        'USP grade required. Prefer blister packaging for retail distribution.',
+      created_at: '2024-09-15T10:30:00Z',
     },
     {
-      id: "req-002",
-      client_id: "client-001",
-      product_name: "Metformin Extended Release",
-      api_name: "Metformin Hydrochloride",
-      dosage_form: "tablet",
-      strength: "500mg",
+      id: 'req-002',
+      client_id: 'client-001',
+      product_name: 'Metformin Extended Release',
+      api_name: 'Metformin Hydrochloride',
+      dosage_form: 'tablet',
+      strength: '500mg',
       quantity: 75000,
-      unit: "pieces",
+      unit: 'pieces',
       budget_usd: 8500,
-      deadline: "2024-11-30T00:00:00Z",
-      priority: "medium",
-      status: "in_progress",
-      notes: "Extended release formulation. Stability data required for 24-month shelf life.",
-      created_at: "2024-09-10T14:20:00Z"
+      deadline: '2024-11-30T00:00:00Z',
+      priority: 'medium',
+      status: 'in_progress',
+      notes:
+        'Extended release formulation. Stability data required for 24-month shelf life.',
+      created_at: '2024-09-10T14:20:00Z',
     },
     {
-      id: "req-003",
-      client_id: "client-002",
-      product_name: "Amoxicillin Capsules",
-      api_name: "Amoxicillin Trihydrate",
-      dosage_form: "capsule",
-      strength: "250mg",
+      id: 'req-003',
+      client_id: 'client-002',
+      product_name: 'Amoxicillin Capsules',
+      api_name: 'Amoxicillin Trihydrate',
+      dosage_form: 'capsule',
+      strength: '250mg',
       quantity: 200000,
-      unit: "pieces",
+      unit: 'pieces',
       budget_usd: 25000,
-      deadline: "2024-10-31T00:00:00Z",
-      priority: "high",
-      status: "open",
-      notes: "FDA-approved facility required. Need CoA and stability studies.",
-      created_at: "2024-09-18T09:15:00Z"
+      deadline: '2024-10-31T00:00:00Z',
+      priority: 'high',
+      status: 'open',
+      notes:
+        'FDA-approved facility required. Need CoA and stability studies.',
+      created_at: '2024-09-18T09:15:00Z',
     },
     {
-      id: "req-004",
-      client_id: "client-003",
-      product_name: "Doxorubicin Injection",
-      api_name: "Doxorubicin Hydrochloride",
-      dosage_form: "injection",
-      strength: "50mg/25ml",
+      id: 'req-004',
+      client_id: 'client-003',
+      product_name: 'Doxorubicin Injection',
+      api_name: 'Doxorubicin Hydrochloride',
+      dosage_form: 'injection',
+      strength: '50mg/25ml',
       quantity: 500,
-      unit: "vials",
+      unit: 'vials',
       budget_usd: 45000,
-      deadline: "2024-11-15T00:00:00Z",
-      priority: "high",
-      status: "open",
-      notes: "GMP facility required. Cold chain storage and transport needed. For clinical trial use.",
-      created_at: "2024-09-20T16:45:00Z"
+      deadline: '2024-11-15T00:00:00Z',
+      priority: 'high',
+      status: 'open',
+      notes:
+        'GMP facility required. Cold chain storage and transport needed. For clinical trial use.',
+      created_at: '2024-09-20T16:45:00Z',
     },
     {
-      id: "req-005",
-      client_id: "client-004",
-      product_name: "Ibuprofen Tablets",
-      api_name: "Ibuprofen",
-      dosage_form: "tablet",
-      strength: "400mg",
+      id: 'req-005',
+      client_id: 'client-004',
+      product_name: 'Ibuprofen Tablets',
+      api_name: 'Ibuprofen',
+      dosage_form: 'tablet',
+      strength: '400mg',
       quantity: 500000,
-      unit: "pieces",
+      unit: 'pieces',
       budget_usd: 12000,
-      deadline: "2024-12-31T00:00:00Z",
-      priority: "low",
-      status: "open",
-      notes: "Generic formulation acceptable. Bulk packaging preferred for hospital use.",
-      created_at: "2024-09-12T13:30:00Z"
-    }
+      deadline: '2024-12-31T00:00:00Z',
+      priority: 'low',
+      status: 'open',
+      notes:
+        'Generic formulation acceptable. Bulk packaging preferred for hospital use.',
+      created_at: '2024-09-12T13:30:00Z',
+    },
   ];
 
   // ---------- Cargar datos desde Supabase (con fallback a mocks) ----------
@@ -237,7 +247,7 @@ const ClientsManagement = () => {
                 company_size: '',
                 status: c.status || 'active',
                 notes: c.notes,
-                created_at: c.created_at
+                created_at: c.created_at,
               }))
             : mockClients;
 
@@ -257,14 +267,17 @@ const ClientsManagement = () => {
                 priority: r.priority,
                 status: r.status || 'open',
                 notes: r.notes,
-                created_at: r.created_at
+                created_at: r.created_at,
               }))
             : mockRequirements;
 
         setClients(mappedClients);
         setRequirements(mappedRequirements);
       } catch (error) {
-        console.error('Error loading data from Supabase, using mock data:', error);
+        console.error(
+          'Error loading data from Supabase, using mock data:',
+          error
+        );
         // Fallback: usar mock data si falla Supabase
         setClients(mockClients);
         setRequirements(mockRequirements);
@@ -288,9 +301,12 @@ const ClientsManagement = () => {
 
   // ---------- CRUD de CLIENTES conectado a Supabase ----------
   const handleDeleteClient = async (clientId) => {
-    if (window.confirm('Are you sure you want to delete this client? This action cannot be undone.')) {
+    if (
+      window.confirm(
+        'Are you sure you want to delete this client? This action cannot be undone.'
+      )
+    ) {
       try {
-        // Borrar en Supabase (si el id es un UUID real; si es mock no pasará nada)
         const { error } = await supabase
           .from('clients')
           .delete()
@@ -298,17 +314,20 @@ const ClientsManagement = () => {
 
         if (error) {
           console.error('Error deleting client in Supabase:', error);
+          alert(
+            'No se pudo eliminar el cliente en Supabase: ' + error.message
+          );
         }
 
-        // Actualizar estado local
+        // Actualizar estado local siempre para reflejar UI
         setClients((prev) => prev?.filter((c) => c?.id !== clientId));
 
-        // Limpiar selección si era el cliente seleccionado
         if (selectedClient?.id === clientId) {
           setSelectedClient(null);
         }
       } catch (error) {
         console.error('Error deleting client:', error);
+        alert('Error inesperado al eliminar el cliente');
       }
     }
   };
@@ -327,12 +346,15 @@ const ClientsManagement = () => {
             contact_email: clientData.email,
             contact_phone: clientData.phone,
             status: clientData.status,
-            notes: clientData.notes
+            notes: clientData.notes,
           })
           .eq('id', editingClient.id);
 
         if (error) {
           console.error('Error updating client in Supabase:', error);
+          alert(
+            'No se pudo actualizar el cliente en Supabase: ' + error.message
+          );
           throw error;
         }
 
@@ -343,9 +365,10 @@ const ClientsManagement = () => {
           )
         );
 
-        // Actualizar seleccionado si corresponde
         if (selectedClient?.id === editingClient?.id) {
-          setSelectedClient((prev) => (prev ? { ...prev, ...clientData } : prev));
+          setSelectedClient((prev) =>
+            prev ? { ...prev, ...clientData } : prev
+          );
         }
       } else {
         // INSERT en Supabase
@@ -359,17 +382,21 @@ const ClientsManagement = () => {
             contact_email: clientData.email,
             contact_phone: clientData.phone,
             status: clientData.status,
-            notes: clientData.notes
+            notes: clientData.notes,
           })
           .select()
           .single();
 
+        console.log('Supabase insert result (clients):', { data, error });
+
         if (error) {
           console.error('Error inserting client in Supabase:', error);
+          alert(
+            'No se pudo crear el cliente en Supabase: ' + error.message
+          );
           throw error;
         }
 
-        // Mapear registro de Supabase → formato usado por la UI
         const newClient = {
           id: data.id,
           company_name: data.name,
@@ -386,12 +413,13 @@ const ClientsManagement = () => {
           company_size: clientData.company_size || '',
           status: data.status || 'active',
           notes: data.notes,
-          created_at: data.created_at
+          created_at: data.created_at,
         };
 
         setClients((prev) => [newClient, ...prev]);
       }
 
+      // Cerrar modal desde el padre cuando todo sale bien
       setIsClientModalOpen(false);
       setEditingClient(null);
     } catch (error) {
@@ -407,10 +435,14 @@ const ClientsManagement = () => {
   };
 
   const handleDeleteRequirement = async (requirementId) => {
-    if (window.confirm('Are you sure you want to delete this requirement?')) {
+    if (
+      window.confirm('Are you sure you want to delete this requirement?')
+    ) {
       try {
         // TODO: conectar a Supabase (tabla client_requirements)
-        setRequirements((prev) => prev?.filter((r) => r?.id !== requirementId));
+        setRequirements((prev) =>
+          prev?.filter((r) => r?.id !== requirementId)
+        );
       } catch (error) {
         console.error('Error deleting requirement:', error);
       }
@@ -424,7 +456,11 @@ const ClientsManagement = () => {
         setRequirements((prev) =>
           prev?.map((r) =>
             r?.id === editingRequirement?.id
-              ? { ...r, ...requirementData, updated_at: new Date()?.toISOString() }
+              ? {
+                  ...r,
+                  ...requirementData,
+                  updated_at: new Date()?.toISOString(),
+                }
               : r
           )
         );
@@ -432,7 +468,7 @@ const ClientsManagement = () => {
         const newRequirement = {
           id: `req-${Date.now()}`,
           ...requirementData,
-          created_at: new Date()?.toISOString()
+          created_at: new Date()?.toISOString(),
         };
         setRequirements((prev) => [newRequirement, ...prev]);
       }
@@ -450,14 +486,16 @@ const ClientsManagement = () => {
     navigate('/intelligent-matching', {
       state: {
         requirement,
-        client: selectedClient
-      }
+        client: selectedClient,
+      },
     });
   };
 
   const getClientRequirements = () => {
     if (!selectedClient) return [];
-    return requirements?.filter((req) => req?.client_id === selectedClient?.id);
+    return requirements?.filter(
+      (req) => req?.client_id === selectedClient?.id
+    );
   };
 
   return (
@@ -470,9 +508,12 @@ const ClientsManagement = () => {
 
           {/* Page Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">Clients Management</h1>
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              Clients Management
+            </h1>
             <p className="text-text-secondary">
-              Manage client relationships and track procurement requirements for pharmaceutical supply chain operations.
+              Manage client relationships and track procurement requirements
+              for pharmaceutical supply chain operations.
             </p>
           </div>
 
