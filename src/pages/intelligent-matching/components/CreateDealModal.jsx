@@ -1,43 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 
-const normalizeStage = (stage) =>
-  stage?.toLowerCase()?.replace(/\s+/g, '_');
+/**
+ * IMPORTANT:
+ * Supabase constraint allows ONLY:
+ * 'lead' | 'negotiation' | 'contract' | 'closed'
+ */
+const STAGE_OPTIONS = [
+  { value: 'lead', label: 'Lead' },
+  { value: 'negotiation', label: 'Negotiation' },
+  { value: 'contract', label: 'Contract' },
+  { value: 'closed', label: 'Closed' }
+];
 
 const CreateDealModal = ({ isOpen, onClose, match, requirement, onCreateDeal }) => {
-  const [dealData, setDealData] = useState({
-    title: `${requirement?.product_name} - ${match?.supplier_name}`,
-    stage: 'negotiation',
-    quantity: requirement?.quantity || 0,
-    unit_price_usd: match?.unit_price_usd || 0,
-    value_usd: (match?.unit_price_usd || 0) * (requirement?.quantity || 0),
-    close_date: '',
-    notes: `Deal created from intelligent matching.
-Similarity Score: ${match?.similarity_score ?? 'N/A'}%
-Key advantages: ${match?.key_differentiators?.join(', ') || 'N/A'}`
-  });
-
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const stageOptions = [
-    { value: 'lead', label: 'Lead' },
-    { value: 'qualified', label: 'Qualified' },
-    { value: 'negotiation', label: 'Negotiation' },
-    { value: 'contract', label: 'Contract' },
-    { value: 'closed_won', label: 'Closed Won' },
-    { value: 'closed_lost', label: 'Closed Lost' }
-  ];
+  const [dealData, setDealData] = useState({
+    title: '',
+    stage: 'negotiation',
+    quantity: 0,
+    unit_price_usd: 0,
+    value_usd: 0,
+    close_date: '',
+    notes: ''
+  });
 
+  /**
+   * Initialize data when modal opens
+   */
+  useEffect(() => {
+    if (!isOpen || !match || !requirement) return;
+
+    const quantity = Number(requirement.quantity || 0);
+    const unitPrice = Number(match.unit_price_usd || 0);
+
+    setDealData({
+      title: `${requirement.product_name} - ${match.supplier_name}`,
+      stage: 'negotiation',
+      quantity,
+      unit_price_usd: unitPrice,
+      value_usd: quantity * unitPrice,
+      close_date: '',
+      notes: `Deal created from intelligent matching.
+Similarity Score: ${match.similarity_score ?? 'N/A'}%
+Key advantages: ${match.key_differentiators?.join(', ') || 'N/A'}`
+    });
+  }, [isOpen, match, requirement]);
+
+  /**
+   * Handle input changes + auto-recalculate value
+   */
   const handleInputChange = (field, value) => {
     setDealData((prev) => {
       const updated = { ...prev, [field]: value };
 
       if (field === 'quantity' || field === 'unit_price_usd') {
-        const qty = field === 'quantity' ? Number(value) : prev.quantity;
-        const price = field === 'unit_price_usd' ? Number(value) : prev.unit_price_usd;
+        const qty = field === 'quantity' ? Number(value) : Number(prev.quantity);
+        const price = field === 'unit_price_usd' ? Number(value) : Number(prev.unit_price_usd);
         updated.value_usd = qty * price;
       }
 
@@ -45,31 +68,55 @@ Key advantages: ${match?.key_differentiators?.join(', ') || 'N/A'}`
     });
   };
 
+  /**
+   * Submit deal → Supabase
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
       const payload = {
+        /* ===== Core deal ===== */
         title: dealData.title,
-        stage: normalizeStage(dealData.stage),
+        stage: dealData.stage,
+        status: dealData.stage === 'closed' ? 'closed' : 'open',
+        priority: 'medium',
+
         quantity: Number(dealData.quantity),
         unit_price_usd: Number(dealData.unit_price_usd),
-        total_value_usd: Number(dealData.value_usd),
+        value_usd: Number(dealData.value_usd),
+
         close_date: dealData.close_date || null,
+        expected_close_date: dealData.close_date || null,
         notes: dealData.notes,
 
-        client_id: requirement?.client_id,
-        supplier_id: match?.supplier_id,
-        product_id: match?.product_id,
-        client_requirement_id: requirement?.id,
-        match_score: match?.similarity_score
+        /* ===== Relations ===== */
+        client_id: requirement.client_id,
+        supplier_id: match.supplier_id,
+        product_id: match.product_id,
+        client_requirement_id: requirement.id,
+
+        /* ===== Snapshot (reporting) ===== */
+        client_name: requirement.client_name,
+        supplier_name: match.supplier_name,
+        product_name: requirement.product_name,
+        dosage_form: match.dosage_form || null,
+        strength: match.strength || null,
+        pack_size: match.pack_size || null,
+
+        /* ===== Matching ===== */
+        similarity_score: match.similarity_score,
+
+        /* ===== Metadata ===== */
+        source: 'intelligent_matching'
       };
 
       await onCreateDeal(payload);
       onClose();
     } catch (error) {
       console.error('Error creating deal:', error);
+      alert('Error creating deal. Check console for details.');
     } finally {
       setIsSubmitting(false);
     }
@@ -80,6 +127,8 @@ Key advantages: ${match?.key_differentiators?.join(', ') || 'N/A'}`
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="bg-surface rounded-lg clinical-shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        
+        {/* Header */}
         <div className="p-6 border-b border-border flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold text-foreground">Create New Deal</h2>
@@ -92,7 +141,9 @@ Key advantages: ${match?.key_differentiators?.join(', ') || 'N/A'}`
           </button>
         </div>
 
+        {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          
           <Input
             label="Deal Name"
             required
@@ -103,7 +154,7 @@ Key advantages: ${match?.key_differentiators?.join(', ') || 'N/A'}`
           <Select
             label="Stage"
             required
-            options={stageOptions}
+            options={STAGE_OPTIONS}
             value={dealData.stage}
             onChange={(value) => handleInputChange('stage', value)}
           />
@@ -138,15 +189,20 @@ Key advantages: ${match?.key_differentiators?.join(', ') || 'N/A'}`
             onChange={(e) => handleInputChange('close_date', e.target.value)}
           />
 
-          <textarea
-            rows={4}
-            className="w-full border border-border rounded-lg p-3"
-            value={dealData.notes}
-            onChange={(e) => handleInputChange('notes', e.target.value)}
-          />
+          <div>
+            <label className="block text-sm font-medium mb-2">Notes</label>
+            <textarea
+              rows={4}
+              className="w-full border border-border rounded-lg p-3"
+              value={dealData.notes}
+              onChange={(e) => handleInputChange('notes', e.target.value)}
+            />
+          </div>
 
           <div className="flex justify-end space-x-3 pt-4 border-t">
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </Button>
             <Button type="submit" loading={isSubmitting} iconName="Plus">
               Create Deal
             </Button>
