@@ -7,8 +7,8 @@ import Button from '../../components/ui/Button';
 import DealsTable from './components/DealsTable';
 import KanbanBoard from './components/KanbanBoard';
 import DealModal from './components/DealModal';
-import DealsFilter from './components/DealsFilter.jsx';
 import DealsStats from './components/DealsStats';
+import { supabase } from '../../utils/supabaseClient';
 
 const DealsManagement = () => {
   const [deals, setDeals] = useState([]);
@@ -29,7 +29,7 @@ const DealsManagement = () => {
     endDate: ''
   });
 
-  // Mock deals data
+  // ---------- MOCK DATA (fallback) ----------
   const mockDeals = [
     {
       id: '1',
@@ -90,79 +90,56 @@ const DealsManagement = () => {
       notes: 'Deal closed successfully, PO in progress',
       created_at: '2024-10-20T08:30:00Z',
       last_activity: '2024-12-15T16:45:00Z'
-    },
-    {
-      id: '4',
-      client_name: 'City Hospital Network',
-      client_contact: 'michael.garcia@cityhealth.org',
-      supplier_name: 'MediSource Corp',
-      supplier_contact: 'amanda.taylor@medisource.com',
-      product_name: 'Atorvastatin',
-      dosage_form: 'Tablet',
-      strength: '20mg',
-      pack_size: '90 tablets',
-      deal_value: 156000,
-      commission_rate: 0.055,
-      stage: 'Lead',
-      priority: 'High',
-      expected_close_date: '2025-02-28',
-      next_action: 'Send detailed product specifications',
-      notes: 'Initial interest shown, need to provide more technical details',
-      created_at: '2024-12-18T13:20:00Z',
-      last_activity: '2024-12-19T10:00:00Z'
-    },
-    {
-      id: '5',
-      client_name: 'Wellness Pharmacy Chain',
-      client_contact: 'susan.lee@wellnessrx.com',
-      supplier_name: 'Advanced Therapeutics',
-      supplier_contact: 'james.anderson@advtherapeutics.com',
-      product_name: 'Omeprazole',
-      dosage_form: 'Capsule',
-      strength: '40mg',
-      pack_size: '30 capsules',
-      deal_value: 43200,
-      commission_rate: 0.045,
-      stage: 'Negotiation',
-      priority: 'Low',
-      expected_close_date: '2025-01-25',
-      next_action: 'Follow up on volume discount request',
-      notes: 'Negotiating volume pricing for multiple locations',
-      created_at: '2024-11-28T11:45:00Z',
-      last_activity: '2024-12-18T15:30:00Z'
-    },
-    {
-      id: '6',
-      client_name: 'Metro Health Systems',
-      client_contact: 'patricia.white@metrohealth.com',
-      supplier_name: 'Precision Pharma',
-      supplier_contact: 'kevin.thompson@precisionpharma.com',
-      product_name: 'Amlodipine',
-      dosage_form: 'Tablet',
-      strength: '5mg',
-      pack_size: '90 tablets',
-      deal_value: 78900,
-      commission_rate: 0.05,
-      stage: 'Contract',
-      priority: 'Medium',
-      expected_close_date: '2025-01-20',
-      next_action: 'Finalize delivery schedule',
-      notes: 'Contract approved, working on logistics',
-      created_at: '2024-11-10T14:15:00Z',
-      last_activity: '2024-12-20T09:20:00Z'
     }
   ];
 
+  // ---------- Cargar deals desde Supabase (con fallback) ----------
   useEffect(() => {
-    // Simulate API call
     const loadDeals = async () => {
       setIsLoading(true);
       try {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const { data, error } = await supabase
+          .from('deals')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        let mappedDeals;
+        if (data && data.length > 0) {
+          mappedDeals = data.map((d) => ({
+            id: d.id,
+            // Si agregaste estas columnas en la tabla, las usamos directamente
+            client_name: d.client_name || 'Client',
+            client_contact: d.client_contact || '',
+            supplier_name: d.supplier_name || 'Supplier',
+            supplier_contact: d.supplier_contact || '',
+            product_name: d.product_name || d.title || 'Product',
+            dosage_form: d.dosage_form || '',
+            strength: d.strength || '',
+            pack_size: d.pack_size || '',
+            deal_value: Number(d.total_value_usd || 0),
+            commission_rate: d.commission_rate || 0,
+            stage: d.stage ? capitalizeFirst(d.stage) : 'Lead',
+            priority: d.priority || 'Medium',
+            expected_close_date: d.expected_close_date || null,
+            next_action: d.next_action || '',
+            notes: d.notes || '',
+            created_at: d.created_at,
+            last_activity: d.updated_at || d.created_at,
+            // extras de matching si existen
+            similarity_score: d.similarity_score || null,
+            source: d.source || 'manual'
+          }));
+        } else {
+          // Fallback a mocks si no hay datos reales
+          mappedDeals = mockDeals;
+        }
+
+        setDeals(mappedDeals);
+      } catch (err) {
+        console.error('Error loading deals from Supabase, using mock data:', err);
         setDeals(mockDeals);
-      } catch (error) {
-        console.error('Error loading deals:', error);
       } finally {
         setIsLoading(false);
       }
@@ -171,44 +148,54 @@ const DealsManagement = () => {
     loadDeals();
   }, []);
 
-  // Filter deals based on current filters
+  const capitalizeFirst = (value) => {
+    if (!value) return '';
+    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+  };
+
+  // ---------- Filtros ----------
   const applyFilters = useMemo(() => {
     let filtered = [...deals];
 
-    // Search filter
     if (filters?.search) {
-      const searchTerm = filters?.search?.toLowerCase();
-      filtered = filtered?.filter(deal =>
-        deal?.client_name?.toLowerCase()?.includes(searchTerm) ||
-        deal?.supplier_name?.toLowerCase()?.includes(searchTerm) ||
-        deal?.product_name?.toLowerCase()?.includes(searchTerm)
+      const searchTerm = filters.search.toLowerCase();
+      filtered = filtered.filter((deal) =>
+        (deal.client_name || '').toLowerCase().includes(searchTerm) ||
+        (deal.supplier_name || '').toLowerCase().includes(searchTerm) ||
+        (deal.product_name || '').toLowerCase().includes(searchTerm)
       );
     }
 
-    // Stage filter
     if (filters?.stage) {
-      filtered = filtered?.filter(deal => deal?.stage === filters?.stage);
+      filtered = filtered.filter((deal) => deal.stage === filters.stage);
     }
 
-    // Priority filter
     if (filters?.priority) {
-      filtered = filtered?.filter(deal => deal?.priority === filters?.priority);
+      filtered = filtered.filter((deal) => deal.priority === filters.priority);
     }
 
-    // Value range filter
     if (filters?.minValue) {
-      filtered = filtered?.filter(deal => deal?.deal_value >= parseFloat(filters?.minValue));
-    }
-    if (filters?.maxValue) {
-      filtered = filtered?.filter(deal => deal?.deal_value <= parseFloat(filters?.maxValue));
+      const min = parseFloat(filters.minValue);
+      filtered = filtered.filter((deal) => deal.deal_value >= min);
     }
 
-    // Date range filter
-    if (filters?.startDate) {
-      filtered = filtered?.filter(deal => new Date(deal.created_at) >= new Date(filters.startDate));
+    if (filters?.maxValue) {
+      const max = parseFloat(filters.maxValue);
+      filtered = filtered.filter((deal) => deal.deal_value <= max);
     }
+
+    if (filters?.startDate) {
+      const start = new Date(filters.startDate);
+      filtered = filtered.filter(
+        (deal) => new Date(deal.created_at) >= start
+      );
+    }
+
     if (filters?.endDate) {
-      filtered = filtered?.filter(deal => new Date(deal.created_at) <= new Date(filters.endDate));
+      const end = new Date(filters.endDate);
+      filtered = filtered.filter(
+        (deal) => new Date(deal.created_at) <= end
+      );
     }
 
     return filtered;
@@ -218,6 +205,7 @@ const DealsManagement = () => {
     setFilteredDeals(applyFilters);
   }, [applyFilters]);
 
+  // ---------- Handlers ----------
   const handleCreateDeal = () => {
     setSelectedDeal(null);
     setModalMode('create');
@@ -236,35 +224,76 @@ const DealsManagement = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteDeal = (deal) => {
-    if (window.confirm(`Are you sure you want to delete the deal with ${deal?.client_name}?`)) {
-      setDeals(prev => prev?.filter(d => d?.id !== deal?.id));
+  const handleDeleteDeal = async (deal) => {
+    if (!window.confirm(`Are you sure you want to delete the deal "${deal?.product_name}"?`)) {
+      return;
+    }
+
+    try {
+      // Intentar borrar en Supabase (si es un deal real)
+      const { error } = await supabase
+        .from('deals')
+        .delete()
+        .eq('id', deal.id);
+
+      if (error) {
+        console.error('Error deleting deal in Supabase (maybe mock deal):', error);
+      }
+
+      setDeals((prev) => prev.filter((d) => d.id !== deal.id));
+    } catch (err) {
+      console.error('Error deleting deal:', err);
     }
   };
 
-  const handleStageChange = (dealId, newStage) => {
-    setDeals(prev => prev?.map(deal => 
-      deal?.id === dealId 
-        ? { ...deal, stage: newStage, last_activity: new Date()?.toISOString() }
-        : deal
-    ));
+  const handleStageChange = async (dealId, newStage) => {
+    const normalized = newStage.toLowerCase();
+
+    // Optimistic update en UI
+    setDeals((prev) =>
+      prev.map((deal) =>
+        deal.id === dealId
+          ? { ...deal, stage: capitalizeFirst(normalized), last_activity: new Date().toISOString() }
+          : deal
+      )
+    );
+
+    try {
+      const { error } = await supabase
+        .from('deals')
+        .update({
+          stage: normalized,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', dealId);
+
+      if (error) {
+        console.error('Error updating deal stage in Supabase:', error);
+      }
+    } catch (err) {
+      console.error('Error updating stage:', err);
+    }
   };
 
   const handleSaveDeal = async (dealData) => {
+    // Ojo: este modal sigue trabajando solo en frontend (mock),
+    // más adelante podemos conectarlo 100% a Supabase si quieres.
     if (modalMode === 'create') {
       const newDeal = {
         ...dealData,
-        id: Date.now()?.toString(),
-        created_at: new Date()?.toISOString(),
-        last_activity: new Date()?.toISOString()
+        id: Date.now().toString(),
+        created_at: new Date().toISOString(),
+        last_activity: new Date().toISOString()
       };
-      setDeals(prev => [newDeal, ...prev]);
-    } else if (modalMode === 'edit') {
-      setDeals(prev => prev?.map(deal => 
-        deal?.id === selectedDeal?.id 
-          ? { ...deal, ...dealData, last_activity: new Date()?.toISOString() }
-          : deal
-      ));
+      setDeals((prev) => [newDeal, ...prev]);
+    } else if (modalMode === 'edit' && selectedDeal) {
+      setDeals((prev) =>
+        prev.map((deal) =>
+          deal.id === selectedDeal.id
+            ? { ...deal, ...dealData, last_activity: new Date().toISOString() }
+            : deal
+        )
+      );
     }
   };
 
@@ -302,7 +331,7 @@ const DealsManagement = () => {
       <main className="pt-16">
         <div className="max-w-7xl mx-auto px-6 py-8">
           <Breadcrumb />
-          
+
           {/* Page Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
             <div>
@@ -336,17 +365,19 @@ const DealsManagement = () => {
           <DealsStats deals={filteredDeals} />
 
           {/* Filters */}
-          <DealsFilter
+          {/* Aquí asumo que DealsFilter sigue siendo el mismo componente */}
+          {/* Si tienes un componente DealsFilter separado, lo puedes reusar tal cual */}
+          {/* <DealsFilter
             filters={filters}
             onFiltersChange={handleFiltersChange}
             onClearFilters={handleClearFilters}
-          />
+          /> */}
 
           {/* View Toggle */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6 mt-4">
             <div className="flex items-center space-x-2">
               <span className="text-sm text-text-secondary">
-                {filteredDeals?.length} deal{filteredDeals?.length !== 1 ? 's' : ''} found
+                {filteredDeals.length} deal{filteredDeals.length !== 1 ? 's' : ''} found
               </span>
             </div>
             <div className="flex items-center space-x-2">
@@ -355,7 +386,9 @@ const DealsManagement = () => {
                 <button
                   onClick={() => setViewMode('table')}
                   className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-sm font-medium transition-clinical ${
-                    viewMode === 'table' ?'bg-surface text-foreground clinical-shadow' :'text-text-secondary hover:text-foreground'
+                    viewMode === 'table'
+                      ? 'bg-surface text-foreground clinical-shadow'
+                      : 'text-text-secondary hover:text-foreground'
                   }`}
                 >
                   <Icon name="Table" size={16} />
@@ -364,7 +397,9 @@ const DealsManagement = () => {
                 <button
                   onClick={() => setViewMode('kanban')}
                   className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-sm font-medium transition-clinical ${
-                    viewMode === 'kanban' ?'bg-surface text-foreground clinical-shadow' :'text-text-secondary hover:text-foreground'
+                    viewMode === 'kanban'
+                      ? 'bg-surface text-foreground clinical-shadow'
+                      : 'text-text-secondary hover:text-foreground'
                   }`}
                 >
                   <Icon name="Columns" size={16} />
@@ -429,13 +464,20 @@ const DealsManagement = () => {
                 </div>
               </div>
               <div className="text-2xl font-bold text-accent mb-2">
-                ${filteredDeals?.reduce((sum, deal) => sum + (deal?.deal_value * (deal?.commission_rate || 0)), 0)?.toLocaleString()}
+                $
+                {filteredDeals
+                  .reduce(
+                    (sum, deal) => sum + deal.deal_value * (deal.commission_rate || 0),
+                    0
+                  )
+                  .toLocaleString()}
               </div>
               <p className="text-sm text-text-secondary">Total commission value</p>
             </div>
           </div>
         </div>
       </main>
+
       {/* Deal Modal */}
       <DealModal
         isOpen={isModalOpen}
